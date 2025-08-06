@@ -116,6 +116,8 @@ def create_gui_layout():
         sg.Checkbox(label, key=f'-QC_{i}-', font=("微软雅黑", 13), enable_events=False)
         for i, label in enumerate(quick_char_labels)
     ]
+    checkbox_rows = [quick_char_checkboxes[i:i+3] for i in range(0, len(quick_char_checkboxes), 3)]
+
 
     layout = [
         [sg.Text("TTF/OTF 转 WOFF2 工具", font=("微软雅黑", 18, "bold"), text_color="#5DA9E9", pad=((0,0),(10,10)))],
@@ -125,7 +127,8 @@ def create_gui_layout():
         [sg.Text("选择输出文件夹 (可选):", font=("微软雅黑", 14)), 
          sg.Input(key='-OUTPUT_FOLDER-', readonly=True, size=(40,1)), 
          sg.FolderBrowse(button_color=("#fff", "#5DA9E9"))],
-        [sg.Text("快捷字符选择（可多选）:", font=("微软雅黑", 14))] + quick_char_checkboxes + 
+         [sg.Text("快捷字符选择（可多选）:", font=("微软雅黑", 14))],
+        *checkbox_rows,
         [sg.Button("填入字符", key='-FILL_CHARS-', font=("微软雅黑", 12))],
         [sg.Text("请输入需要保留的字符（留空为全部）:", font=("微软雅黑", 14))],
         [sg.Multiline(key='-SUBSET_CHARS-', size=(60,4), font=("Consolas", 14))],
