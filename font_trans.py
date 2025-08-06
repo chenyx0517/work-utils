@@ -129,6 +129,8 @@ def create_gui_layout():
     # 将字重多选框放入一个列中
     weight_column = sg.Column([weight_checkboxes_layout], key='-WEIGHT_COLUMN-', visible=False)
 
+    
+
     layout = [
         [sg.Text("TTF/OTF 转 WOFF2 工具", font=("微软雅黑", 18, "bold"), text_color="#5DA9E9", pad=((0,0),(10,10)))],
         [sg.Text("选择要转换的字体文件:", font=("微软雅黑", 14)), 
@@ -140,7 +142,8 @@ def create_gui_layout():
         [sg.Text("快捷字符选择（可多选）:", font=("微软雅黑", 14))],
         *checkbox_rows,
         [sg.Text("请输入需要保留的字符（留空为全部）:", font=("微软雅黑", 14))],
-        [sg.Multiline(key='-SUBSET_CHARS-', size=(60,4), font=("Consolas", 14))],
+        [sg.Multiline(key='-SUBSET_CHARS-', size=(60,4), font=("Consolas", 14),background_color="#fff")],
+        [sg.Text("提示：字符过多时转换较慢哦", font=("微软雅黑", 12), text_color="#6D326D")],
         [sg.Text("选择字重（仅可变字体可选，可多选）:", key='-WEIGHT_LABEL-', visible=False, font=("微软雅黑", 14))],
         [weight_column], # 将列放入布局中
         [sg.Button("开始转换", key='-CONVERT_BUTTON-', size=(12,1), font=("微软雅黑", 14, "bold"), button_color=("#fff", "#5DA9E9"))],
