@@ -109,15 +109,25 @@ def create_gui_layout():
         ("全部简体中文", ''.join(chr(i) for i in range(0x4E00, 0x9FFF + 1))),
         ("全部繁体中文", ''.join(chr(i) for i in range(0x3400, 0x4DBF + 1)) + ''.join(chr(i) for i in range(0x4E00, 0x9FFF + 1))),
         ("全部日文", ''.join(chr(i) for i in range(0x3040, 0x309F + 1)) + ''.join(chr(i) for i in range(0x30A0, 0x30FF + 1)) + ''.join(chr(i) for i in range(0x31F0, 0x31FF + 1))),
-        ("全部韩文", ''.join(chr(i) for i in range(0xAC00, 0xD7AF + 1)) + ''.join(chr(i) for i in range(0x1100, 0x11FF + 1)) + ''.join(chr(i) for i in range(0x3130, 0x318F + 1)))
+        ("全部韩文", ''.join(chr(i) for i in range(0xAC00, 0xD7A3 + 1)))
     ]
     quick_char_labels = [opt[0] for opt in quick_char_options]
     quick_char_checkboxes = [
         sg.Checkbox(label, key=f'-QC_{i}-', font=("微软雅黑", 13), enable_events=False)
         for i, label in enumerate(quick_char_labels)
     ]
+
+    # 每行最多显示3个checkbox
     checkbox_rows = [quick_char_checkboxes[i:i+3] for i in range(0, len(quick_char_checkboxes), 3)]
 
+    # 预置10个隐藏Checkbox用于字重选择
+    weight_checkboxes_layout = [
+        sg.Checkbox('', key=f'-W_{i}-', visible=False, font=("微软雅黑", 13))
+        for i in range(10)
+    ]
+    
+    # 将字重多选框放入一个列中
+    weight_column = sg.Column([weight_checkboxes_layout], key='-WEIGHT_COLUMN-', visible=False)
 
     layout = [
         [sg.Text("TTF/OTF 转 WOFF2 工具", font=("微软雅黑", 18, "bold"), text_color="#5DA9E9", pad=((0,0),(10,10)))],
@@ -127,13 +137,12 @@ def create_gui_layout():
         [sg.Text("选择输出文件夹 (可选):", font=("微软雅黑", 14)), 
          sg.Input(key='-OUTPUT_FOLDER-', readonly=True, size=(40,1)), 
          sg.FolderBrowse(button_color=("#fff", "#5DA9E9"))],
-         [sg.Text("快捷字符选择（可多选）:", font=("微软雅黑", 14))],
+        [sg.Text("快捷字符选择（可多选）:", font=("微软雅黑", 14))],
         *checkbox_rows,
-        [sg.Button("填入字符", key='-FILL_CHARS-', font=("微软雅黑", 12))],
         [sg.Text("请输入需要保留的字符（留空为全部）:", font=("微软雅黑", 14))],
         [sg.Multiline(key='-SUBSET_CHARS-', size=(60,4), font=("Consolas", 14))],
-        [sg.Text("选择字重（仅可变字体可选）:", key='-WEIGHT_LABEL-', visible=False, font=("微软雅黑", 14)),
-         sg.Combo([], key='-WEIGHT_COMBO-', size=(20,1), readonly=True, visible=False, font=("微软雅黑", 14))],
+        [sg.Text("选择字重（仅可变字体可选，可多选）:", key='-WEIGHT_LABEL-', visible=False, font=("微软雅黑", 14))],
+        [weight_column], # 将列放入布局中
         [sg.Button("开始转换", key='-CONVERT_BUTTON-', size=(12,1), font=("微软雅黑", 14, "bold"), button_color=("#fff", "#5DA9E9"))],
         [sg.HorizontalSeparator()],
         [sg.Text("状态信息：", font=("微软雅黑", 12, "bold"), text_color="#336699")],
@@ -143,18 +152,21 @@ def create_gui_layout():
 
 
 # --- 主 GUI 逻辑 ---
+# ... (GUI 布局和核心转换逻辑部分保持不变)
+
 def main_gui():
     """运行 PySimpleGUI 应用程序。"""
-    sg.theme('Reddit') # 设置 GUI 主题
+    sg.theme('Reddit')
     window = sg.Window(
         "字体 TTF/OTF 转 WOFF2 工具",
         create_gui_layout(),
         icon=None,
         finalize=True,
-        size=(900, 700),   # 设置窗口大小
-        resizable=True    
+        size=(900, 700),
+        resizable=True
     )
 
+    # 修正韩语字符集定义
     quick_char_options = [
         ("全部数字", "0123456789"),
         ("大写英文", "ABCDEFGHIJKLMNOPQRSTUVWXYZ"),
@@ -164,111 +176,135 @@ def main_gui():
         ("全部简体中文", ''.join(chr(i) for i in range(0x4E00, 0x9FFF + 1))),
         ("全部繁体中文", ''.join(chr(i) for i in range(0x3400, 0x4DBF + 1)) + ''.join(chr(i) for i in range(0x4E00, 0x9FFF + 1))),
         ("全部日文", ''.join(chr(i) for i in range(0x3040, 0x309F + 1)) + ''.join(chr(i) for i in range(0x30A0, 0x30FF + 1)) + ''.join(chr(i) for i in range(0x31F0, 0x31FF + 1))),
-        ("全部韩文", ''.join(chr(i) for i in range(0xAC00, 0xD7AF + 1)) + ''.join(chr(i) for i in range(0x1100, 0x11FF + 1)) + ''.join(chr(i) for i in range(0x3130, 0x318F + 1)))
+        # 简化为现代韩语音节，这个范围在大多数韩文字体中都有支持
+        ("全部韩文", ''.join(chr(i) for i in range(0xAC00, 0xD7A3 + 1)))
     ]
-    quick_char_map = {opt[0]: opt[1] for opt in quick_char_options}
 
+    current_weights = []
 
     while True:
         event, values = window.read()
 
-        if event == sg.WIN_CLOSED: # 用户关闭窗口
+        if event == sg.WIN_CLOSED:
             break
+        elif event == '-FILL_CHARS-':
+            current_chars = values.get('-SUBSET_CHARS-', '') or ''
+            selected_chars_from_quick = []
+            for i, option in enumerate(quick_char_options):
+                if values.get(f'-QC_{i}-'):
+                    selected_chars_from_quick.append(option[1])
+            quick_chars_to_add = ''.join(selected_chars_from_quick)
+            combined_chars = ''.join(sorted(set(current_chars + quick_chars_to_add)))
+            window['-SUBSET_CHARS-'].update(combined_chars)
         elif event == '-INPUT_FILE-':
-            # 当用户选择输入文件后，自动填充输出文件夹为输入文件所在目录
             input_file_path = values['-INPUT_FILE-']
             if input_file_path:
                 output_folder = os.path.dirname(input_file_path)
                 window['-OUTPUT_FOLDER-'].update(output_folder)
-                # 检查是否为可变字体，并显示字重选择
+
+                window['-WEIGHT_LABEL-'].update(visible=False)
+                window['-WEIGHT_COLUMN-'].update(visible=False)
+                current_weights = []
+
                 try:
                     font = TTFont(input_file_path)
-                    print(f"[调试] 已加载字体: {input_file_path}")
-                    print(f"[调试] font.keys(): {list(font.keys())}")
                     if 'fvar' in font:
-                        # 获取所有可用 weight 值
                         fvar = font['fvar']
-                        weight_axis = None
+                        weights_from_font = []
                         for axis in fvar.axes:
                             if axis.axisTag == 'wght':
-                                weight_axis = axis
+                                min_w = int(axis.minValue)
+                                max_w = int(axis.maxValue)
+                                default_w = int(axis.defaultValue)
+                                weights_from_font = sorted(list(set([min_w, 100, 200, 300, 400, 500, 600, 700, 800, 900, max_w, default_w])))
+                                weights_from_font = [w for w in weights_from_font if min_w <= w <= max_w]
                                 break
-                        if weight_axis:
-                            min_w = int(weight_axis.minValue)
-                            max_w = int(weight_axis.maxValue)
-                            default_w = int(weight_axis.defaultValue)
-                            # 生成常用字重选项，首位加空（不选）
-                            weights = list(sorted(set([min_w, 100, 200, 300, 400, 500, 600, 700, 800, 900, max_w, default_w])))
-                            weights = [w for w in weights if min_w <= w <= max_w]
-                            weights = list(dict.fromkeys(weights)) # 去重保持顺序
-                            weights_display = [''] + weights  # '' 代表不选
+
+                        if weights_from_font:
                             window['-WEIGHT_LABEL-'].update(visible=True)
-                            window['-WEIGHT_COMBO-'].update(values=weights_display, value='', visible=True)
+                            window['-WEIGHT_COLUMN-'].update(visible=True)
+                            current_weights = weights_from_font
+                            for i in range(10):
+                                if i < len(current_weights):
+                                    window[f'-W_{i}-'].update(text=str(current_weights[i]), visible=True, value=False)
+                                else:
+                                    window[f'-W_{i}-'].update(text='', visible=False, value=False)
                         else:
                             window['-WEIGHT_LABEL-'].update(visible=False)
-                            window['-WEIGHT_COMBO-'].update(visible=False)
+                            window['-WEIGHT_COLUMN-'].update(visible=False)
+
                     else:
                         window['-WEIGHT_LABEL-'].update(visible=False)
-                        window['-WEIGHT_COMBO-'].update(visible=False)
+                        window['-WEIGHT_COLUMN-'].update(visible=False)
                 except Exception as e:
+                    window['-OUTPUT-'].print(f"警告: 无法读取字体文件或检测字重。错误: {e}", text_color='orange')
                     window['-WEIGHT_LABEL-'].update(visible=False)
-                    window['-WEIGHT_COMBO-'].update(visible=False)
+                    window['-WEIGHT_COLUMN-'].update(visible=False)
         elif event == '-CONVERT_BUTTON-':
             input_file = values['-INPUT_FILE-']
             output_folder = values['-OUTPUT_FOLDER-']
-            # 获取输入框内容
             subset_chars = values.get('-SUBSET_CHARS-', '') or ''
-            weight_value = values.get('-WEIGHT_COMBO-', None)
-            if weight_value in (None, '', ' '):
-                weight_value = None
 
-            # 合并所有勾选的快捷字符
-            selected = []
-            for i, label in enumerate(quick_char_map.keys()):
+            weight_values = []
+            for i in range(len(current_weights)):
+                if values.get(f'-W_{i}-'):
+                    weight_values.append(current_weights[i])
+
+            quick_chars_from_checkboxes = []
+            for i, option in enumerate(quick_char_options):
                 if values.get(f'-QC_{i}-'):
-                    selected.append(label)
-            quick_chars = ''.join([quick_char_map[label] for label in selected])
+                    quick_chars_from_checkboxes.append(option[1])
+            quick_chars = ''.join(quick_chars_from_checkboxes)
 
-            # 合并输入框和快捷字符，去重
             all_chars = ''.join(sorted(set(subset_chars + quick_chars))) if (subset_chars or quick_chars) else None
 
             if not input_file:
                 sg.popup_error("请先选择一个字体文件！")
                 continue
 
-            final_output_path = None
-            if output_folder:
-                output_filename = os.path.basename(input_file)
-                base_name, ext = os.path.splitext(output_filename)
-                final_output_path = os.path.join(output_folder, f"{base_name}.woff2")
-            
-            window['-OUTPUT-'].print(f"正在处理文件: {input_file}")
-            window['-OUTPUT-'].print(f"目标输出: {final_output_path if final_output_path else '与输入文件同目录'}")
-            if all_chars:
-                window['-OUTPUT-'].print(f"仅保留字符: {all_chars}")
-            if weight_value:
-                window['-OUTPUT-'].print(f"字重: {weight_value}")
-            
-            # 用合并后的字符集进行转换
-            success, message = convert_ttf_to_woff2_core(input_file, final_output_path, all_chars, weight_value)
-            
-            if success:
-                window['-OUTPUT-'].print(f"成功: {message}", text_color='green')
-                sg.popup_ok("转换成功！", message)
+            if not weight_values:
+                weight_values = [None]
+
+            success_count = 0
+
+            for weight_value in weight_values:
+                base_name = os.path.splitext(os.path.basename(input_file))[0]
+                output_filename = f"{base_name}_w{weight_value}.woff2" if weight_value is not None else f"{base_name}.woff2"
+                
+                final_output_path = os.path.join(output_folder or os.path.dirname(input_file), output_filename)
+
+                window['-OUTPUT-'].print(f"正在处理文件: {input_file}")
+                window['-OUTPUT-'].print(f"目标输出: {final_output_path}")
+                if all_chars:
+                    window['-OUTPUT-'].print(f"仅保留字符: {all_chars}")
+                if weight_value:
+                    window['-OUTPUT-'].print(f"字重: {weight_value}")
+
+                success, message = convert_ttf_to_woff2_core(input_file, final_output_path, all_chars, weight_value)
+
+                if success:
+                    window['-OUTPUT-'].print(f"成功: {message}", text_color='green')
+                    success_count += 1
+                else:
+                    window['-OUTPUT-'].print(f"失败: {message}", text_color='red')
+
+            if success_count > 0:
+                sg.popup_ok("转换完成！", f"成功转换 {success_count} 个文件。")
             else:
-                window['-OUTPUT-'].print(f"失败: {message}", text_color='red')
-                sg.popup_error("转换失败！", message)
+                sg.popup_error("转换失败！", "请检查状态信息。")
     window.close()
 
+
 if __name__ == "__main__":
-    # 在运行 GUI 之前，先检查 Brotli 是否安装
     try:
         import brotli
     except ImportError:
         sg.popup_error("错误: 缺少 'brotli' 库！\n"
                        "WOFF2 转换需要 Brotli 压缩算法。\n"
                        "请在终端运行 'pip install brotli' 安装后重试。")
-        sys.exit(1) # 如果缺少关键依赖，则退出应用
+        sys.exit(1)
 
-    # 直接调用 GUI 主函数，不再解析命令行参数
     main_gui()
+
+
+
