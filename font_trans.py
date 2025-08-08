@@ -5,7 +5,7 @@ from fontTools import subset
 from fontTools.subset import Options
 from fontTools.ttLib import TTFont
 
-# --- 字体转换核心逻辑 (修正版) ---
+# --- 字体转换核心逻辑 ---
 def convert_ttf_to_woff2_core(input_ttf_path, output_woff2_path=None, subset_chars=None, weight_value=None):
     """
     将 TTF/OTF 字体文件转换为 WOFF2 格式。
@@ -179,7 +179,6 @@ def main_gui():
         ("全部简体中文", ''.join(chr(i) for i in range(0x4E00, 0x9FFF + 1))),
         ("全部繁体中文", ''.join(chr(i) for i in range(0x3400, 0x4DBF + 1)) + ''.join(chr(i) for i in range(0x4E00, 0x9FFF + 1))),
         ("全部日文", ''.join(chr(i) for i in range(0x3040, 0x309F + 1)) + ''.join(chr(i) for i in range(0x30A0, 0x30FF + 1)) + ''.join(chr(i) for i in range(0x31F0, 0x31FF + 1))),
-        # 简化为现代韩语音节，这个范围在大多数韩文字体中都有支持
         ("全部韩文", ''.join(chr(i) for i in range(0xAC00, 0xD7A3 + 1)))
     ]
 

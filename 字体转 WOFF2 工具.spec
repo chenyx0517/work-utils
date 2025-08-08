@@ -35,10 +35,11 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
+    icon=['icon.ico'],
 )
 app = BUNDLE(
     exe,
     name='字体转 WOFF2 工具.app',
-    icon=None,
+    icon='icon.ico',
     bundle_identifier=None,
 )
