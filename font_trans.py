@@ -7,17 +7,11 @@ from fontTools.ttLib import TTFont
 
 # --- 字体转换核心逻辑 ---
 def convert_ttf_to_woff2_core(input_ttf_path, output_woff2_path=None, subset_chars=None, weight_value=None):
-    """
-    将 TTF/OTF 字体文件转换为 WOFF2 格式。
-    subset_chars: 只保留这些字符（字符串），为 None 或空字符串时保留全部。
-    weight_value: 可变字体时，指定字重（int），否则忽略。
-    此函数返回 (成功状态, 消息字符串)。
-    """
     if not os.path.exists(input_ttf_path):
         return False, f"错误: 输入文件不存在 - {input_ttf_path}"
 
     if not input_ttf_path.lower().endswith((".ttf", ".otf")):
-        return False, f"错误: 输入文件 '{input_ttf_path}' 似乎不是 TTF 或 OTF 格式。"
+        return False, f"错误: 输入文件 '{input_ttf_path}' 不是 TTF 或 OTF 格式。"
 
     if output_woff2_path is None:
         base_name = os.path.splitext(os.path.basename(input_ttf_path))[0]
@@ -33,7 +27,6 @@ def convert_ttf_to_woff2_core(input_ttf_path, output_woff2_path=None, subset_cha
     try:
         from fontTools import subset
         import traceback
-        # 1. 先实例化字重（如有）
         font_for_subset = input_ttf_path
         temp_font = None
         if weight_value is not None and str(weight_value).isdigit():
@@ -54,53 +47,57 @@ def convert_ttf_to_woff2_core(input_ttf_path, output_woff2_path=None, subset_cha
                             with tempfile.NamedTemporaryFile(suffix=".ttf", delete=False) as tmpf:
                                 temp_font.save(tmpf.name)
                                 font_for_subset = tmpf.name
-                            print(f"[调试] 已实例化字重: {weight_value}, 临时字体: {font_for_subset}")
                         else:
-                            print(f"[调试] 字体是可变字体但没有 'wght' 轴，将忽略字重选择。")
+                            pass  # 字体是可变字体但没有 'wght' 轴，将忽略字重选择
                     else:
-                        print(f"[调试] 字体不是可变字体，将忽略字重选择。")
+                        pass  # 字体不是可变字体，将忽略字重选择
             except Exception as e:
                 return False, f"检测字体支持的字重时出错: {e}\n{traceback.format_exc()}"
 
-        # 2. 配置 subset options
-        options = subset.Options()
-        options.flavor = "woff2"
-        options.with_zopfli = False
-        options.desubroutinize = True
-        options.name_IDs = ['*']
-        options.name_legacy = True
-        options.name_languages = ['*']
-        options.layout_features = ['*']
-        options.notdef_glyph = True
-        options.notdef_outline = True
-        options.recalc_bounds = True
-        options.recalc_timestamp = True
-        options.canonical_order = True
-
-        subsetter = subset.Subsetter(options=options)
-        font = subset.load_font(font_for_subset, options)
+        # 记录开始时间
+        import time
+        start_time = time.time()
+        
+        # 简化的转换方式，提升速度
+        font = TTFont(font_for_subset)
+        
         if subset_chars and subset_chars.strip():
-            unicodes = [ord(c) for c in subset_chars]
-            subsetter.populate(unicodes=unicodes)
+            # 使用简化的子集化方式
+            subsetter = subset.Subsetter()
+            subsetter.populate(text=subset_chars)
             subsetter.subset(font)
-        subset.save_font(font, output_woff2_path, options)
+        
+        # 直接设置 WOFF2 格式并保存
+        font.flavor = 'woff2'
+        font.save(output_woff2_path)
+        
+        # 计算转换时间
+        end_time = time.time()
+        conversion_time = end_time - start_time
 
-        message = f"成功转换: '{input_ttf_path}' 到 '{output_woff2_path}'"
-        if subset_chars and subset_chars.strip():
-            message += " (仅保留指定字符)"
+        # 构建简洁的成功消息
+        base_name = os.path.basename(input_ttf_path)
+        message = f"✓ {base_name} 转换成功"
         if weight_value:
-            message += f" 字重:{weight_value}"
+            message += f" (字重:{weight_value})"
+        message += f" - 耗时: {conversion_time:.2f}秒"
+        
         return True, message
 
     except Exception as e:
-        import traceback
-        print(f"[调试] 字体转换时发生错误: {e}")
-        print(traceback.format_exc())
-        return False, f"字体转换时发生错误: {e}\n{traceback.format_exc()}"
+        return False, f"字体转换时发生错误: {e}"
 # --- GUI 界面布局 ---
 def create_gui_layout():
     # 快捷字符选项
+    # 构建快捷选择字符集（类似 font_trans2.py）
+    quick_select_chars = set()
+    quick_select_chars.update(chr(i) for i in range(0x0021, 0x007F))  # 基本拉丁字母
+    quick_select_chars.update(chr(i) for i in range(0x4E00, 0x9FFF))  # 中文汉字
+    quick_select_chars.update(chr(i) for i in range(0x3000, 0x303F))  # 中文标点符号
+    quick_select_chars.update(chr(i) for i in range(0xFF00, 0xFFEF))  # 全角字符
+    
     quick_char_options = [
+        ("快捷选择", ''.join(quick_select_chars)),
         ("全部数字", "0123456789"),
         ("大写英文", "ABCDEFGHIJKLMNOPQRSTUVWXYZ"),
         ("小写英文", "abcdefghijklmnopqrstuvwxyz"),
@@ -113,20 +110,17 @@ def create_gui_layout():
     ]
     quick_char_labels = [opt[0] for opt in quick_char_options]
     quick_char_checkboxes = [
-        sg.Checkbox(label, key=f'-QC_{i}-', font=("微软雅黑", 13), enable_events=False)
+        sg.Checkbox(label, key=f'-QC_{i}-', font=("微软雅黑", 13), enable_events=False, default=True if i == 0 else False)
         for i, label in enumerate(quick_char_labels)
     ]
 
-    # 每行最多显示3个checkbox
     checkbox_rows = [quick_char_checkboxes[i:i+3] for i in range(0, len(quick_char_checkboxes), 3)]
 
-    # 预置10个隐藏Checkbox用于字重选择
     weight_checkboxes_layout = [
         sg.Checkbox('', key=f'-W_{i}-', visible=False, font=("微软雅黑", 13))
         for i in range(10)
     ]
     
-    # 将字重多选框放入一个列中
     weight_column = sg.Column([weight_checkboxes_layout], key='-WEIGHT_COLUMN-', visible=False)
 
     
@@ -154,9 +148,6 @@ def create_gui_layout():
     return layout
 
 
-# --- 主 GUI 逻辑 ---
-# ... (GUI 布局和核心转换逻辑部分保持不变)
-
 def main_gui():
     """运行 PySimpleGUI 应用程序。"""
     sg.theme('Reddit')
@@ -169,8 +160,16 @@ def main_gui():
         resizable=True
     )
 
-    # 修正韩语字符集定义
+    # 快捷字符选项
+    # 构建快捷选择字符集（类似 font_trans2.py）
+    quick_select_chars = set()
+    quick_select_chars.update(chr(i) for i in range(0x0021, 0x007F))  # 基本拉丁字母
+    quick_select_chars.update(chr(i) for i in range(0x4E00, 0x9FFF))  # 中文汉字
+    quick_select_chars.update(chr(i) for i in range(0x3000, 0x303F))  # 中文标点符号
+    quick_select_chars.update(chr(i) for i in range(0xFF00, 0xFFEF))  # 全角字符
+    
     quick_char_options = [
+        ("快捷选择", ''.join(quick_select_chars)),
         ("全部数字", "0123456789"),
         ("大写英文", "ABCDEFGHIJKLMNOPQRSTUVWXYZ"),
         ("小写英文", "abcdefghijklmnopqrstuvwxyz"),
@@ -275,20 +274,13 @@ def main_gui():
                 
                 final_output_path = os.path.join(output_folder or os.path.dirname(input_file), output_filename)
 
-                window['-OUTPUT-'].print(f"正在处理文件: {input_file}")
-                window['-OUTPUT-'].print(f"目标输出: {final_output_path}")
-                if all_chars:
-                    window['-OUTPUT-'].print(f"仅保留字符: {all_chars}")
-                if weight_value:
-                    window['-OUTPUT-'].print(f"字重: {weight_value}")
-
                 success, message = convert_ttf_to_woff2_core(input_file, final_output_path, all_chars, weight_value)
 
                 if success:
-                    window['-OUTPUT-'].print(f"成功: {message}", text_color='green')
+                    window['-OUTPUT-'].print(message, text_color='green')
                     success_count += 1
                 else:
-                    window['-OUTPUT-'].print(f"失败: {message}", text_color='red')
+                    window['-OUTPUT-'].print(f"✗ 转换失败: {message}", text_color='red')
 
             if success_count > 0:
                 sg.popup_ok("转换完成！", f"成功转换 {success_count} 个文件。")
@@ -302,7 +294,6 @@ if __name__ == "__main__":
         import brotli
     except ImportError:
         sg.popup_error("错误: 缺少 'brotli' 库！\n"
-                       "WOFF2 转换需要 Brotli 压缩算法。\n"
                        "请在终端运行 'pip install brotli' 安装后重试。")
         sys.exit(1)
 

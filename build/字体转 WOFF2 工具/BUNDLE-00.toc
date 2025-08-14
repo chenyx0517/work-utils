@@ -1,3 +1,0 @@
-([('字体转 WOFF2 工具',
-   '/Users/m10003000054/work-python/dist/字体转 WOFF2 工具',
-   'EXECUTABLE')],)
