@@ -1,587 +1,619 @@
 <!DOCTYPE html>
 <html>
+	<head>
+		<title>字体转换工具</title>
+		<meta charset="utf-8" />
+		<style>
+			/* CSS 变量，便于全局主题调整 */
+			:root {
+				--primary-color: #007bff;
+				--primary-dark: #0056b3;
+				--background-color: #f0f2f5;
+				--card-background: #fff;
+				--border-color: #e0e0e0;
+				--text-color: #333;
+				--placeholder-color: #a0a0a0;
+				--success-bg: #d4edda;
+				--success-color: #155724;
+				--error-bg: #f8d7da;
+				--error-color: #721c24;
+				--info-bg: #e2e3e5;
+				--info-color: #383d41;
+				--button-text-color: white;
+				--font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+			}
 
-<head>
-    <title>字体转换工具</title>
-    <meta charset="utf-8">
-    <style>
-        /* CSS 变量，便于全局主题调整 */
-        :root {
-            --primary-color: #007bff;
-            --primary-dark: #0056b3;
-            --background-color: #f0f2f5;
-            --card-background: #fff;
-            --border-color: #e0e0e0;
-            --text-color: #333;
-            --placeholder-color: #a0a0a0;
-            --success-bg: #d4edda;
-            --success-color: #155724;
-            --error-bg: #f8d7da;
-            --error-color: #721c24;
-            --info-bg: #e2e3e5;
-            --info-color: #383d41;
-            --button-text-color: white;
-            --font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-        }
+			body {
+				font-family: var(--font-family);
+				background: var(--background-color);
+				padding: 20px;
+				color: var(--text-color);
+			}
 
-        body {
-            font-family: var(--font-family);
-            background: var(--background-color);
-            padding: 20px;
-            color: var(--text-color);
-        }
+			.container {
+				max-width: 800px;
+				margin: 0 auto;
+				background: var(--card-background);
+				padding: 20px 30px;
+				border-radius: 12px;
+				box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
+			}
+			.content {
+				width: 100%;
+				display: flex;
+				gap: 10px;
+			}
+			.left {
+				flex: 1;
+			}
+			.right {
+				width: 200px;
+			}
 
-        .container {
-            max-width: 800px;
-            margin: 0 auto;
-            background: var(--card-background);
-            padding: 20px 30px;
-            border-radius: 12px;
-            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
-        }
+			h1 {
+				text-align: center;
+				color: var(--primary-dark);
+				margin-bottom: 25px;
+				font-size: 24px;
+				font-weight: 600;
+			}
 
-        h1 {
-            text-align: center;
-            color: var(--primary-dark);
-            margin-bottom: 25px;
-            font-size: 24px;
-            font-weight: 600;
-        }
+			.card {
+				padding: 15px 20px;
+				border-radius: 8px;
+				border: 1px solid var(--border-color);
+				margin-bottom: 25px;
+				transition: box-shadow 0.3s ease;
+			}
 
-        .card {
-            padding: 15px 20px;
-            border-radius: 8px;
-            border: 1px solid var(--border-color);
-            margin-bottom: 25px;
-            transition: box-shadow 0.3s ease;
-        }
+			.card:hover {
+				box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+			}
 
-        .card:hover {
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
-        }
+			h3 {
+				font-size: 16px;
+				font-weight: 500;
+				color: var(--primary-color);
+				margin: 0;
+			}
 
-        h3 {
-            font-size: 16px;
-            font-weight: 500;
-            color: var(--primary-color);
-            margin: 0;
-        }
+			.flex-container {
+				display: flex;
+				align-items: center;
+				justify-content: space-between;
+			}
 
-        .flex-container {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-        }
+			button {
+				padding: 10px 18px;
+				cursor: pointer;
+				border: none;
+				border-radius: 6px;
+				background-color: var(--primary-color);
+				color: var(--button-text-color);
+				font-size: 14px;
+				transition: background-color 0.2s ease, transform 0.1s ease;
+				margin-left: 10px;
+			}
 
-        button {
-            padding: 10px 18px;
-            cursor: pointer;
-            border: none;
-            border-radius: 6px;
-            background-color: var(--primary-color);
-            color: var(--button-text-color);
-            font-size: 14px;
-            transition: background-color 0.2s ease, transform 0.1s ease;
-            margin-left: 10px;
-        }
+			button:hover:not(:disabled) {
+				background-color: var(--primary-dark);
+				transform: translateY(-1px);
+			}
 
-        button:hover:not(:disabled) {
-            background-color: var(--primary-dark);
-            transform: translateY(-1px);
-        }
+			button:active:not(:disabled) {
+				transform: translateY(1px);
+			}
 
-        button:active:not(:disabled) {
-            transform: translateY(1px);
-        }
+			button:disabled {
+				background-color: #ccc;
+				cursor: not-allowed;
+			}
 
-        button:disabled {
-            background-color: #ccc;
-            cursor: not-allowed;
-        }
+			.file-path {
+				padding: 12px;
+				border: 1px dashed var(--border-color);
+				border-radius: 6px;
+				margin-top: 10px;
+				word-break: break-all;
+				background-color: #f8f9fa;
+				transition: border-color 0.2s ease;
+				color: var(--placeholder-color);
+				font-size: 14px;
+			}
 
-        .file-path {
-            padding: 12px;
-            border: 1px dashed var(--border-color);
-            border-radius: 6px;
-            margin-top: 10px;
-            word-break: break-all;
-            background-color: #f8f9fa;
-            transition: border-color 0.2s ease;
-            color: var(--placeholder-color);
-            font-size: 14px;
-        }
+			.file-path.active {
+				border-color: var(--primary-color);
+				color: var(--text-color);
+			}
 
-        .file-path.active {
-            border-color: var(--primary-color);
-            color: var(--text-color);
-        }
+			.result {
+				padding: 15px;
+				border-radius: 6px;
+				margin-top: 15px;
+				min-height: 50px;
+				white-space: pre-wrap;
+				word-wrap: break-word;
+				font-family: monospace;
+				line-height: 1.6;
+				transition: background-color 0.3s ease;
+				animation: fadeIn 0.5s ease-in-out;
+			}
 
-        .result {
-            padding: 15px;
-            border-radius: 6px;
-            margin-top: 15px;
-            min-height: 50px;
-            white-space: pre-wrap;
-            word-wrap: break-word;
-            font-family: monospace;
-            line-height: 1.6;
-            transition: background-color 0.3s ease;
-            animation: fadeIn 0.5s ease-in-out;
-        }
+			@keyframes fadeIn {
+				from {
+					opacity: 0;
+				}
 
-        @keyframes fadeIn {
-            from {
-                opacity: 0;
-            }
+				to {
+					opacity: 1;
+				}
+			}
 
-            to {
-                opacity: 1;
-            }
-        }
+			.result.success {
+				background-color: var(--success-bg);
+				color: var(--success-color);
+			}
 
-        .result.success {
-            background-color: var(--success-bg);
-            color: var(--success-color);
-        }
+			.result.error {
+				background-color: var(--error-bg);
+				color: var(--error-color);
+			}
 
-        .result.error {
-            background-color: var(--error-bg);
-            color: var(--error-color);
-        }
+			.result.info {
+				background-color: var(--background-color);
+				color: var(--info-color);
+			}
 
-        .result.info {
-            background-color: var(--info-bg);
-            color: var(--info-color);
-        }
+			.checkbox-group {
+				display: grid;
+				grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+				gap: 15px;
+				margin-top: 15px;
+			}
 
-        .checkbox-group {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-            gap: 15px;
-            margin-top: 15px;
-        }
+			.checkbox-group label {
+				display: flex;
+				align-items: center;
+				cursor: pointer;
+				font-size: 14px;
+				position: relative;
+				padding-left: 30px;
+			}
 
-        .checkbox-group label {
-            display: flex;
-            align-items: center;
-            cursor: pointer;
-            font-size: 14px;
-            position: relative;
-            padding-left: 30px;
-        }
+			.checkbox-group input[type="checkbox"] {
+				position: absolute;
+				opacity: 0;
+				cursor: pointer;
+				height: 0;
+				width: 0;
+			}
 
-        .checkbox-group input[type="checkbox"] {
-            position: absolute;
-            opacity: 0;
-            cursor: pointer;
-            height: 0;
-            width: 0;
-        }
+			.checkmark {
+				position: absolute;
+				top: 1px;
+				left: 0;
+				height: 20px;
+				width: 20px;
+				background-color: #eee;
+				border-radius: 4px;
+				border: 1px solid #ddd;
+				transition: all 0.2s ease;
+			}
 
-        .checkmark {
-            position: absolute;
-            top: 1px;
-            left: 0;
-            height: 20px;
-            width: 20px;
-            background-color: #eee;
-            border-radius: 4px;
-            border: 1px solid #ddd;
-            transition: all 0.2s ease;
-        }
+			.checkbox-group label:hover input ~ .checkmark {
+				background-color: #ccc;
+			}
 
-        .checkbox-group label:hover input~.checkmark {
-            background-color: #ccc;
-        }
+			.checkbox-group input:checked ~ .checkmark {
+				background-color: var(--primary-color);
+				border-color: var(--primary-color);
+			}
 
-        .checkbox-group input:checked~.checkmark {
-            background-color: var(--primary-color);
-            border-color: var(--primary-color);
-        }
+			.checkmark:after {
+				content: "";
+				position: absolute;
+				display: none;
+			}
 
-        .checkmark:after {
-            content: "";
-            position: absolute;
-            display: none;
-        }
+			.checkbox-group input:checked ~ .checkmark:after {
+				display: block;
+			}
 
-        .checkbox-group input:checked~.checkmark:after {
-            display: block;
-        }
+			.checkbox-group .checkmark:after {
+				left: 6px;
+				top: 2px;
+				width: 6px;
+				height: 12px;
+				border: solid white;
+				border-width: 0 3px 3px 0;
+				transform: rotate(45deg);
+			}
 
-        .checkbox-group .checkmark:after {
-            left: 6px;
-            top: 2px;
-            width: 6px;
-            height: 12px;
-            border: solid white;
-            border-width: 0 3px 3px 0;
-            transform: rotate(45deg);
-        }
+			textarea {
+				width: 100%;
+				padding: 10px;
+				border-radius: 6px;
+				border: 1px solid var(--border-color);
+				box-sizing: border-box;
+				margin-top: 10px;
+				resize: vertical;
+				min-height: 80px;
+				font-size: 14px;
+				transition: border-color 0.2s ease;
+			}
 
-        textarea {
-            width: 100%;
-            padding: 10px;
-            border-radius: 6px;
-            border: 1px solid var(--border-color);
-            box-sizing: border-box;
-            margin-top: 10px;
-            resize: vertical;
-            min-height: 80px;
-            font-size: 14px;
-            transition: border-color 0.2s ease;
-        }
+			textarea:focus {
+				outline: none;
+				border-color: var(--primary-color);
+				box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25);
+			}
 
-        textarea:focus {
-            outline: none;
-            border-color: var(--primary-color);
-            box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25);
-        }
+			.weight-options {
+				display: flex;
+				flex-wrap: wrap;
+				gap: 10px;
+				margin-top: 15px;
+			}
 
-        .weight-options {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 10px;
-            margin-top: 15px;
-        }
+			.weight-options label {
+				padding: 8px 15px;
+				border: 1px solid #ccc;
+				border-radius: 20px;
+				cursor: pointer;
+				font-size: 14px;
+				transition: all 0.2s ease;
+				position: relative;
+			}
 
-        .weight-options label {
-            padding: 8px 15px;
-            border: 1px solid #ccc;
-            border-radius: 20px;
-            cursor: pointer;
-            font-size: 14px;
-            transition: all 0.2s ease;
-            position: relative;
-        }
+			.weight-options input[type="checkbox"] {
+				display: none;
+			}
 
-        .weight-options input[type="checkbox"] {
-            display: none;
-        }
+			.weight-options input:checked + label {
+				background-color: var(--primary-color);
+				color: white;
+				border-color: var(--primary-color);
+			}
 
-        .weight-options input:checked+label {
-            background-color: var(--primary-color);
-            color: white;
-            border-color: var(--primary-color);
-        }
+			.weight-options label:hover:not(:has(input:checked)) {
+				background-color: #f0f0f0;
+			}
 
-        .weight-options label:hover:not(:has(input:checked)) {
-            background-color: #f0f0f0;
-        }
+			.card-header {
+				display: flex;
+				justify-content: space-between;
+				align-items: center;
+			}
 
-        .card-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
+			.card-header h3 {
+				margin: 0;
+			}
 
-        .card-header h3 {
-            margin: 0;
-        }
+			.format-options {
+				display: flex;
+				flex-wrap: wrap;
+				gap: 10px;
+				margin-top: 15px;
+			}
 
-        .format-options {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 10px;
-            margin-top: 15px;
-        }
+			.format-options label {
+				padding: 8px 15px;
+				border: 1px solid #ccc;
+				border-radius: 20px;
+				cursor: pointer;
+				font-size: 14px;
+				transition: all 0.2s ease;
+				position: relative;
+			}
 
-        .format-options label {
-            padding: 8px 15px;
-            border: 1px solid #ccc;
-            border-radius: 20px;
-            cursor: pointer;
-            font-size: 14px;
-            transition: all 0.2s ease;
-            position: relative;
-        }
+			.format-options input[type="checkbox"] {
+				display: none;
+			}
 
-        .format-options input[type="checkbox"] {
-            display: none;
-        }
+			.format-options input:checked + label {
+				background-color: var(--primary-color);
+				color: white;
+				border-color: var(--primary-color);
+			}
 
-        .format-options input:checked + label {
-            background-color: var(--primary-color);
-            color: white;
-            border-color: var(--primary-color);
-        }
+			.format-options label:hover:not(:has(input:checked)) {
+				background-color: #f0f0f0;
+			}
+		</style>
+	</head>
 
-        .format-options label:hover:not(:has(input:checked)) {
-            background-color: #f0f0f0;
-        }
-    </style>
-</head>
+	<body>
+		<div class="container">
+			<h1>字体转WOFF工具 🚀</h1>
+			<div class="content">
+				<div class="left">
+					<div class="card">
+						<div class="card-header">
+							<h3>第一步：选择字体文件</h3>
+							<button onclick="selectInputFile()">选取文件</button>
+						</div>
+						<div id="inputFilePath" class="file-path">请点击“选取文件”按钮...</div>
+					</div>
 
-<body>
-    <div class="container">
-        <h1>字体转WOFF工具 🚀</h1>
+					<div class="card">
+						<div class="card-header">
+							<h3>第二步：选择输出位置（可选）</h3>
+							<button onclick="selectOutputFolder()">选择文件夹</button>
+						</div>
+						<div id="outputFolderPath" class="file-path">如果留空，文件将保存在原始字体所在的目录。</div>
+					</div>
 
-        <div class="card">
-            <div class="card-header">
-                <h3>第一步：选择字体文件</h3>
-                <button onclick="selectInputFile()">选取文件</button>
-            </div>
-            <div id="inputFilePath" class="file-path">请点击“选取文件”按钮...</div>
-        </div>
+					<div class="card">
+						<h3>第三步：定义需要保留的字符（可选）</h3>
+						<p style="font-size: 12px; color: #666">这能大大减小字体文件体积。</p>
+						<div id="quickCharsContainer" class="checkbox-group"></div>
+						<textarea
+							id="subsetChars"
+							rows="4"
+							placeholder="你也可以在此处粘贴自定义的文本，例如：Hello World!"
+							style="margin-top: 15px"
+						></textarea>
+					</div>
 
-        <div class="card">
-            <div class="card-header">
-                <h3>第二步：选择输出位置（可选）</h3>
-                <button onclick="selectOutputFolder()">选择文件夹</button>
-            </div>
-            <div id="outputFolderPath" class="file-path">如果留空，文件将保存在原始字体所在的目录。</div>
-        </div>
+					<div class="card">
+						<h3>第四步：选择输出格式</h3>
+						<p style="font-size: 12px; color: #666">可以选择多种输出格式。</p>
+						<div class="format-options">
+							<input type="checkbox" id="format-woff" name="format" value="woff" />
+							<label for="format-woff">WOFF</label>
 
-        <div class="card">
-            <h3>第三步：定义需要保留的字符（可选）</h3>
-            <p style="font-size:12px; color:#666;">这能大大减小字体文件体积。</p>
-            <div id="quickCharsContainer" class="checkbox-group"></div>
-            <textarea id="subsetChars" rows="4" placeholder="你也可以在此处粘贴自定义的文本，例如：Hello World!"
-                style="margin-top: 15px;"></textarea>
-        </div>
+							<input type="checkbox" id="format-woff2" name="format" value="woff2" checked />
+							<label for="format-woff2">WOFF2</label>
+						</div>
+					</div>
+					<div class="card" id="weightCard" style="display: none">
+						<h3>第五步：选择字重（可变字体）</h3>
+						<p style="font-size: 12px; color: #666">该字体为可变字体，请选择需要导出的字重版本。</p>
+						<div id="weightOptions" class="weight-options"></div>
+					</div>
+				</div>
 
-        <div class="card">
-            <h3>第四步：选择输出格式</h3>
-            <p style="font-size:12px; color:#666;">可以选择多种输出格式。</p>
-            <div class="format-options">
-                <input type="checkbox" id="format-ttf" name="format" value="ttf">
-                <label for="format-ttf">TTF</label>
-        
-                <input type="checkbox" id="format-woff" name="format" value="woff">
-                <label for="format-woff">WOFF</label>
-        
-                <input type="checkbox" id="format-woff2" name="format" value="woff2" checked>
-                <label for="format-woff2">WOFF2</label>
-            </div>
-        </div>
+				<div class="card right">
+					<div class="card-header">
+						<h3>开始转换</h3>
+						<button id="convertBtn" onclick="startConversion()" disabled>开始转换</button>
+					</div>
+					<div id="result" class="result info">准备就绪，等待您的操作...</div>
+				</div>
+			</div>
+		</div>
 
-        <div class="card" id="weightCard" style="display: none;">
-            <h3>第五步：选择字重（可变字体）</h3>
-            <p style="font-size:12px; color:#666;">该字体为可变字体，请选择需要导出的字重版本。</p>
-            <div id="weightOptions" class="weight-options"></div>
-        </div>
+		<script>
+			let inputFile = null
+			let outputFolder = null
+			let availableWeights = []
 
-        <div class="card">
-            <div class="card-header">
-                <h3>最后一步：开始转换</h3>
-                <button id="convertBtn" onclick="startConversion()" disabled>开始转换</button>
-            </div>
-            <div id="result" class="result info">准备就绪，等待您的操作...</div>
-        </div>
-    </div>
+			// 统一字符集定义
+			const quickCharSets = {
+				"常用(推荐)": "常用字符集",
+				全部数字: "0123456789",
+				大小写英文: "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz",
+				简体中文: "简体中文集",
+				繁体中文: "繁体中文集",
+				全部日文: "日文字符集",
+				全部韩文: "韩文字符集"
+			}
+			const allUnicodeRanges = {
+				常用字符集: (() => {
+					const chars = new Set()
+					for (let i = 0x0021; i <= 0x007f; i++) chars.add(String.fromCharCode(i))
+					for (let i = 0x4e00; i <= 0x9fff; i++) chars.add(String.fromCharCode(i))
+					for (let i = 0x3000; i <= 0x303f; i++) chars.add(String.fromCharCode(i))
+					for (let i = 0xff00; i <= 0xffef; i++) chars.add(String.fromCharCode(i))
+					return Array.from(chars).join("")
+				})(),
+				简体中文集: Array.from({ length: 0x9fff - 0x4e00 + 1 }, (_, i) => String.fromCharCode(0x4e00 + i)).join(""),
+				繁体中文集:
+					Array.from({ length: 0x4dbf - 0x3400 + 1 }, (_, i) => String.fromCharCode(0x3400 + i)).join("") +
+					Array.from({ length: 0x9fff - 0x4e00 + 1 }, (_, i) => String.fromCharCode(0x4e00 + i)).join(""),
+				日文字符集:
+					Array.from({ length: 0x309f - 0x3040 + 1 }, (_, i) => String.fromCharCode(0x3040 + i)).join("") +
+					Array.from({ length: 0x30ff - 0x30a0 + 1 }, (_, i) => String.fromCharCode(0x30a0 + i)).join("") +
+					Array.from({ length: 0x31ff - 0x31f0 + 1 }, (_, i) => String.fromCharCode(0x31f0 + i)).join(""),
+				韩文字符集: Array.from({ length: 0xd7a3 - 0xac00 + 1 }, (_, i) => String.fromCharCode(0xac00 + i)).join("")
+			}
 
-    <script>
-        let inputFile = null;
-        let outputFolder = null;
-        let availableWeights = [];
-
-        // 统一字符集定义
-        const quickCharSets = {
-            "常用(推荐)": "常用字符集",
-            "全部数字": "0123456789",
-            "大小写英文": "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz",
-            "简体中文": "简体中文集",
-            "繁体中文": "繁体中文集",
-            "全部日文": "日文字符集",
-            "全部韩文": "韩文字符集"
-        };
-        const allUnicodeRanges = {
-            "常用字符集": (() => {
-                const chars = new Set();
-                for (let i = 0x0021; i <= 0x007F; i++) chars.add(String.fromCharCode(i));
-                for (let i = 0x4E00; i <= 0x9FFF; i++) chars.add(String.fromCharCode(i));
-                for (let i = 0x3000; i <= 0x303F; i++) chars.add(String.fromCharCode(i));
-                for (let i = 0xFF00; i <= 0xFFEF; i++) chars.add(String.fromCharCode(i));
-                return Array.from(chars).join('');
-            })(),
-            "简体中文集": Array.from({ length: 0x9FFF - 0x4E00 + 1 }, (_, i) => String.fromCharCode(0x4E00 + i)).join(''),
-            "繁体中文集": Array.from({ length: 0x4DBF - 0x3400 + 1 }, (_, i) => String.fromCharCode(0x3400 + i)).join('') +
-                Array.from({ length: 0x9FFF - 0x4E00 + 1 }, (_, i) => String.fromCharCode(0x4E00 + i)).join(''),
-            "日文字符集": Array.from({ length: 0x309F - 0x3040 + 1 }, (_, i) => String.fromCharCode(0x3040 + i)).join('') +
-                Array.from({ length: 0x30FF - 0x30A0 + 1 }, (_, i) => String.fromCharCode(0x30A0 + i)).join('') +
-                Array.from({ length: 0x31FF - 0x31F0 + 1 }, (_, i) => String.fromCharCode(0x31F0 + i)).join(''),
-            "韩文字符集": Array.from({ length: 0xD7A3 - 0xAC00 + 1 }, (_, i) => String.fromCharCode(0xAC00 + i)).join('')
-        };
-
-        function renderQuickCharCheckboxes () {
-            const container = document.getElementById('quickCharsContainer');
-            container.innerHTML = '';
-            Object.entries(quickCharSets).forEach(([label, value], index) => {
-                const isDefault = (label === "常用(推荐)");
-                const inputId = `quick-char-${index}`;
-                container.innerHTML += `
+			function renderQuickCharCheckboxes() {
+				const container = document.getElementById("quickCharsContainer")
+				container.innerHTML = ""
+				Object.entries(quickCharSets).forEach(([label, value], index) => {
+					const isDefault = label === "常用(推荐)"
+					const inputId = `quick-char-${index}`
+					container.innerHTML += `
                     <label for="${inputId}">
-                        <input type="checkbox" id="${inputId}" data-chars="${value}" ${isDefault ? 'checked' : ''}>
+                        <input type="checkbox" id="${inputId}" data-chars="${value}" ${isDefault ? "checked" : ""}>
                         <span class="checkmark"></span>
                         ${label}
                     </label>
-                `;
-            });
-        }
+                `
+				})
+			}
 
-        renderQuickCharCheckboxes();
+			renderQuickCharCheckboxes()
 
-        function updateResult (message, type) {
-            const resultDiv = document.getElementById('result');
-            resultDiv.innerText = message;
-            resultDiv.className = `result ${type || 'info'}`;
-        }
+			function updateResult(message, type) {
+				const resultDiv = document.getElementById("result")
+				resultDiv.innerText = message
+				resultDiv.className = `result ${type || "info"}`
+			}
 
-        async function selectInputFile () {
-            updateResult('正在呼叫文件选择窗口，请稍候...', 'info');
-            inputFile = await window.pywebview.api.select_input_file();
+			async function selectInputFile() {
+				updateResult("正在呼叫文件选择窗口，请稍候...", "info")
+				inputFile = await window.pywebview.api.select_input_file()
 
-            const inputPathDiv = document.getElementById('inputFilePath');
-            const convertBtn = document.getElementById('convertBtn');
+				const inputPathDiv = document.getElementById("inputFilePath")
+				const convertBtn = document.getElementById("convertBtn")
 
-            if (inputFile) {
-                inputPathDiv.innerText = inputFile;
-                inputPathDiv.classList.add('active');
-                convertBtn.disabled = false;
-                outputFolder = null;
-                document.getElementById('outputFolderPath').innerText = "如果留空，文件将保存在原始字体所在的目录。";
-                document.getElementById('outputFolderPath').classList.remove('active');
-                updateResult('✅ 文件选择成功！现在可以继续了。', 'success');
+				if (inputFile) {
+					inputPathDiv.innerText = inputFile
+					inputPathDiv.classList.add("active")
+					convertBtn.disabled = false
+					outputFolder = null
+					document.getElementById("outputFolderPath").innerText = "如果留空，文件将保存在原始字体所在的目录。"
+					document.getElementById("outputFolderPath").classList.remove("active")
+					updateResult("✅ 文件选择成功！现在可以继续了。", "success")
 
-                const weights = await window.pywebview.api.get_font_weights(inputFile);
-                availableWeights = weights;
+					const weights = await window.pywebview.api.get_font_weights(inputFile)
+					availableWeights = weights
 
-                const weightCard = document.getElementById('weightCard');
-                const weightOptions = document.getElementById('weightOptions');
-                weightOptions.innerHTML = '';
+					const weightCard = document.getElementById("weightCard")
+					const weightOptions = document.getElementById("weightOptions")
+					weightOptions.innerHTML = ""
 
-                if (weights && weights.length > 0) {
-                    weightCard.style.display = 'block';
-                    weights.forEach(weight => {
-                        const inputId = `weight-${weight}`;
-                        weightOptions.innerHTML += `
+					if (weights && weights.length > 0) {
+						weightCard.style.display = "block"
+						weights.forEach((weight) => {
+							const inputId = `weight-${weight}`
+							weightOptions.innerHTML += `
                             <input type="checkbox" id="${inputId}" name="weight" value="${weight}">
                             <label for="${inputId}">${weight}</label>
-                        `;
-                    });
-                } else {
-                    weightCard.style.display = 'none';
-                }
+                        `
+						})
+					} else {
+						weightCard.style.display = "none"
+					}
+				} else {
+					updateResult("ℹ️ 您取消了文件选择。", "info")
+					inputPathDiv.innerText = "请点击“选取文件”按钮..."
+					inputPathDiv.classList.remove("active")
+					convertBtn.disabled = true
+					document.getElementById("weightCard").style.display = "none"
+				}
+			}
 
-            } else {
-                updateResult('ℹ️ 您取消了文件选择。', 'info');
-                inputPathDiv.innerText = "请点击“选取文件”按钮...";
-                inputPathDiv.classList.remove('active');
-                convertBtn.disabled = true;
-                document.getElementById('weightCard').style.display = 'none';
-            }
-        }
+			async function selectOutputFolder() {
+				updateResult("正在呼叫文件夹选择窗口...", "info")
+				const folderPath = await window.pywebview.api.select_output_folder()
+				const outputFolderDiv = document.getElementById("outputFolderPath")
 
-        async function selectOutputFolder () {
-            updateResult('正在呼叫文件夹选择窗口...', 'info');
-            const folderPath = await window.pywebview.api.select_output_folder();
-            const outputFolderDiv = document.getElementById('outputFolderPath');
+				if (folderPath) {
+					outputFolder = folderPath
+					outputFolderDiv.innerText = `已选择：${outputFolder}`
+					outputFolderDiv.classList.add("active")
+					updateResult("✅ 输出文件夹选择成功！", "success")
+				} else {
+					updateResult("ℹ️ 您取消了文件夹选择。将使用默认输出位置。", "info")
+					outputFolder = null
+					outputFolderDiv.innerText = "如果留空，文件将保存在原始字体所在的目录。"
+					outputFolderDiv.classList.remove("active")
+				}
+			}
 
-            if (folderPath) {
-                outputFolder = folderPath;
-                outputFolderDiv.innerText = `已选择：${outputFolder}`;
-                outputFolderDiv.classList.add('active');
-                updateResult('✅ 输出文件夹选择成功！', 'success');
-            } else {
-                updateResult('ℹ️ 您取消了文件夹选择。将使用默认输出位置。', 'info');
-                outputFolder = null;
-                outputFolderDiv.innerText = "如果留空，文件将保存在原始字体所在的目录。";
-                outputFolderDiv.classList.remove('active');
-            }
-        }
+			async function startConversion() {
+				if (!inputFile) {
+					updateResult("❌ 请先选择字体文件哦！", "error")
+					return
+				}
 
-        async function startConversion () {
-            if (!inputFile) {
-                updateResult('❌ 请先选择字体文件哦！', 'error');
-                return;
-            }
+				const subsetChars = document.getElementById("subsetChars").value
+				const selectedQuickChars = Array.from(document.querySelectorAll("#quickCharsContainer input:checked")).map(
+					(el) => el.getAttribute("data-chars")
+				)
 
-            const subsetChars = document.getElementById('subsetChars').value;
-            const selectedQuickChars = Array.from(document.querySelectorAll('#quickCharsContainer input:checked'))
-                .map(el => el.getAttribute('data-chars'));
+				const allChars = Array.from(
+					new Set(
+						(
+							subsetChars +
+							selectedQuickChars
+								.map((chars) => {
+									return allUnicodeRanges[chars] || chars
+								})
+								.join("")
+						).split("")
+					)
+				).join("")
 
-            const allChars = Array.from(new Set(
-                (subsetChars + selectedQuickChars.map(chars => {
-                    return allUnicodeRanges[chars] || chars;
-                }).join('')).split('')
-            )).join('');
+				const selectedWeights = Array.from(document.querySelectorAll("#weightOptions input:checked")).map(
+					(el) => el.value
+				)
 
-            const selectedWeights = Array.from(document.querySelectorAll('#weightOptions input:checked'))
-                .map(el => el.value);
+				const convertBtn = document.getElementById("convertBtn")
+				convertBtn.disabled = true
 
-            const convertBtn = document.getElementById('convertBtn');
-            convertBtn.disabled = true;
+				updateResult("🚀 转换任务已提交，请耐心等待...", "info")
 
-            updateResult('🚀 转换任务已提交，请耐心等待...', 'info');
+				const result = await window.pywebview.api.start_conversion(inputFile, allChars, selectedWeights, outputFolder)
 
-            const result = await window.pywebview.api.start_conversion(inputFile, allChars, selectedWeights, outputFolder);
+				convertBtn.disabled = false
 
-            convertBtn.disabled = false;
+				if (result.success) {
+					let message = `🎉 转换完成！总耗时：${result.total_time_seconds.toFixed(2)} 秒\n`
+					if (result.paths && result.paths.length > 0) {
+						message += "\n转换后的文件位于：\n" + result.paths.join("\n")
+					}
+					updateResult(message, "success")
+				} else {
+					updateResult(result.message, "error")
+				}
+			}
 
-            if (result.success) {
-                let message = `🎉 转换完成！总耗时：${result.total_time_seconds.toFixed(2)} 秒\n`;
-                if (result.paths && result.paths.length > 0) {
-                    message += '\n转换后的文件位于：\n' + result.paths.join('\n');
-                }
-                updateResult(message, 'success');
-            } else {
-                updateResult(result.message, 'error');
-            }
-        }
-   
-        async function startConversion () {
-                if (!inputFile) {
-                    updateResult('❌ 请先选择字体文件哦！', 'error');
-                    return;
-                }
+			async function startConversion() {
+				if (!inputFile) {
+					updateResult("❌ 请先选择字体文件哦！", "error")
+					return
+				}
 
-                const selectedFormats = Array.from(document.querySelectorAll('.format-options input:checked'))
-                    .map(el => el.value);
+				const selectedFormats = Array.from(document.querySelectorAll(".format-options input:checked")).map(
+					(el) => el.value
+				)
 
-                if (selectedFormats.length === 0) {
-                    updateResult('❌ 请至少选择一种输出格式！', 'error');
-                    return;
-                }
+				if (selectedFormats.length === 0) {
+					updateResult("❌ 请至少选择一种输出格式！", "error")
+					return
+				}
 
-                const subsetChars = document.getElementById('subsetChars').value;
-                const selectedQuickChars = Array.from(document.querySelectorAll('#quickCharsContainer input:checked'))
-                    .map(el => el.getAttribute('data-chars'));
+				const subsetChars = document.getElementById("subsetChars").value
+				const selectedQuickChars = Array.from(document.querySelectorAll("#quickCharsContainer input:checked")).map(
+					(el) => el.getAttribute("data-chars")
+				)
 
-                const allChars = Array.from(new Set(
-                    (subsetChars + selectedQuickChars.map(chars => {
-                        return allUnicodeRanges[chars] || chars;
-                    }).join('')).split('')
-                )).join('');
+				const allChars = Array.from(
+					new Set(
+						(
+							subsetChars +
+							selectedQuickChars
+								.map((chars) => {
+									return allUnicodeRanges[chars] || chars
+								})
+								.join("")
+						).split("")
+					)
+				).join("")
 
-                const selectedWeights = Array.from(document.querySelectorAll('#weightOptions input:checked'))
-                    .map(el => el.value);
+				const selectedWeights = Array.from(document.querySelectorAll("#weightOptions input:checked")).map(
+					(el) => el.value
+				)
 
-                const convertBtn = document.getElementById('convertBtn');
-                convertBtn.disabled = true;
+				const convertBtn = document.getElementById("convertBtn")
+				convertBtn.disabled = true
 
-                updateResult('🚀 转换任务已提交，请耐心等待...', 'info');
+				updateResult("🚀 转换任务已提交，请耐心等待...", "info")
 
-                const result = await window.pywebview.api.start_conversion(
-                    inputFile,
-                    allChars,
-                    selectedWeights,
-                    outputFolder,
-                    selectedFormats
-                );
+				const result = await window.pywebview.api.start_conversion(
+					inputFile,
+					allChars,
+					selectedWeights,
+					outputFolder,
+					selectedFormats
+				)
 
-                convertBtn.disabled = false;
+				convertBtn.disabled = false
 
-                if (result.success) {
-                    let message = `🎉 转换完成！总耗时：${result.total_time_seconds.toFixed(2)} 秒\n`;
-                    if (result.paths && result.paths.length > 0) {
-                        message += '\n转换后的文件位于：\n' + result.paths.join('\n');
-                    }
-                    updateResult(message, 'success');
-                } else {
-                    updateResult(result.message, 'error');
-                }
-            }
-   </script>
-</body>
-
+				if (result.success) {
+					let message = `🎉 转换完成！总耗时：${result.total_time_seconds.toFixed(2)} 秒\n`
+					if (result.paths && result.paths.length > 0) {
+						message += "\n转换后的文件位于：\n" + result.paths.join("\n")
+					}
+					updateResult(message, "success")
+				} else {
+					updateResult(result.message, "error")
+				}
+			}
+		</script>
+	</body>
 </html>

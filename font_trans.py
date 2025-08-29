@@ -61,6 +61,16 @@ class FontConverterAPI:
             return []
 
     def start_conversion(self, input_path, subset_chars=None, weights=None, output_folder=None, output_formats=None):
+        """
+        开始字体转换和子集化
+        
+        参数:
+        - input_path: 输入字体文件路径
+        - subset_chars: 需要保留的字符字符串
+        - weights: 需要转换的字重列表
+        - output_folder: 输出文件夹路径
+        - output_formats: 输出格式列表 (e.g., ['woff2', 'woff'])
+        """
         try:
             if not input_path or not os.path.exists(input_path):
                 return {"success": False, "message": "输入文件不存在"}
@@ -73,21 +83,25 @@ class FontConverterAPI:
             weights = weights or [None]
 
             for weight in weights:
-                # 读取原始字体
-                font = TTFont(input_path)
+                # 每次循环都创建一个新的字体对象副本，以避免状态冲突
+                font_to_convert = TTFont(input_path)
 
-                # 处理字重（如果是可变字体）
-                if weight and 'fvar' in font:
+                # 1. 处理字重（如果是可变字体）
+                if weight and 'fvar' in font_to_convert:
                     from fontTools.varLib.instancer import instantiateVariableFont
-                    font = instantiateVariableFont(font, {'wght': float(weight)})
-
-                # 子集化处理
+                    font_to_convert = instantiateVariableFont(font_to_convert, {'wght': float(weight)})
+                
+                # 2. 进行子集化处理
                 if subset_chars:
+                    print(f"Received subset_chars: '{subset_chars}'")
+                    # 创建子集化器
                     subsetter = subset.Subsetter()
+                    # 填充要保留的字符
                     subsetter.populate(text=subset_chars)
-                    subsetter.subset(font)
+                    # 对字体进行子集化操作，这会直接修改 `font_to_convert` 对象
+                    subsetter.subset(font_to_convert)
 
-                # 为每种格式生成文件
+                # 3. 为每种格式生成文件
                 for format in output_formats:
                     # 确定输出文件名
                     base_name = os.path.splitext(os.path.basename(input_path))[0]
@@ -95,15 +109,12 @@ class FontConverterAPI:
                     output_name = f"{base_name}{weight_suffix}.{format}"
                     output_path = os.path.join(output_folder or os.path.dirname(input_path), output_name)
 
-                    # 创建字体副本用于转换
-                    font_copy = TTFont(font.reader.file.name if hasattr(font.reader, 'file') else input_path)
-                    
-                    # 根据格式设置flavor
+                    # 根据格式设置 flavor
                     if format in ['woff', 'woff2']:
-                        font_copy.flavor = format
+                        font_to_convert.flavor = format
                     
-                    # 保存文件
-                    font_copy.save(output_path)
+                    # 4. 保存经过子集化和格式处理的字体
+                    font_to_convert.save(output_path)
                     converted_paths.append(output_path)
 
             total_time = time.time() - start_time
@@ -118,8 +129,6 @@ class FontConverterAPI:
                 "success": False,
                 "message": f"转换过程中发生错误: {str(e)}"
             }
-
-
 def main():
     try:
         import brotli
@@ -143,7 +152,7 @@ def main():
         html_path,
         js_api=api,
         width=900,
-        height=800,
+        height=900,
         min_size=(800, 600)
     )
     api.window = window
