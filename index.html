@@ -278,6 +278,37 @@
         .card-header h3 {
             margin: 0;
         }
+
+        .format-options {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 15px;
+        }
+
+        .format-options label {
+            padding: 8px 15px;
+            border: 1px solid #ccc;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.2s ease;
+            position: relative;
+        }
+
+        .format-options input[type="checkbox"] {
+            display: none;
+        }
+
+        .format-options input:checked + label {
+            background-color: var(--primary-color);
+            color: white;
+            border-color: var(--primary-color);
+        }
+
+        .format-options label:hover:not(:has(input:checked)) {
+            background-color: #f0f0f0;
+        }
     </style>
 </head>
 
@@ -309,8 +340,23 @@
                 style="margin-top: 15px;"></textarea>
         </div>
 
+        <div class="card">
+            <h3>第四步：选择输出格式</h3>
+            <p style="font-size:12px; color:#666;">可以选择多种输出格式。</p>
+            <div class="format-options">
+                <input type="checkbox" id="format-ttf" name="format" value="ttf">
+                <label for="format-ttf">TTF</label>
+        
+                <input type="checkbox" id="format-woff" name="format" value="woff">
+                <label for="format-woff">WOFF</label>
+        
+                <input type="checkbox" id="format-woff2" name="format" value="woff2" checked>
+                <label for="format-woff2">WOFF2</label>
+            </div>
+        </div>
+
         <div class="card" id="weightCard" style="display: none;">
-            <h3>第四步：选择字重（可变字体）</h3>
+            <h3>第五步：选择字重（可变字体）</h3>
             <p style="font-size:12px; color:#666;">该字体为可变字体，请选择需要导出的字重版本。</p>
             <div id="weightOptions" class="weight-options"></div>
         </div>
@@ -482,7 +528,60 @@
                 updateResult(result.message, 'error');
             }
         }
-    </script>
+   
+        async function startConversion () {
+                if (!inputFile) {
+                    updateResult('❌ 请先选择字体文件哦！', 'error');
+                    return;
+                }
+
+                const selectedFormats = Array.from(document.querySelectorAll('.format-options input:checked'))
+                    .map(el => el.value);
+
+                if (selectedFormats.length === 0) {
+                    updateResult('❌ 请至少选择一种输出格式！', 'error');
+                    return;
+                }
+
+                const subsetChars = document.getElementById('subsetChars').value;
+                const selectedQuickChars = Array.from(document.querySelectorAll('#quickCharsContainer input:checked'))
+                    .map(el => el.getAttribute('data-chars'));
+
+                const allChars = Array.from(new Set(
+                    (subsetChars + selectedQuickChars.map(chars => {
+                        return allUnicodeRanges[chars] || chars;
+                    }).join('')).split('')
+                )).join('');
+
+                const selectedWeights = Array.from(document.querySelectorAll('#weightOptions input:checked'))
+                    .map(el => el.value);
+
+                const convertBtn = document.getElementById('convertBtn');
+                convertBtn.disabled = true;
+
+                updateResult('🚀 转换任务已提交，请耐心等待...', 'info');
+
+                const result = await window.pywebview.api.start_conversion(
+                    inputFile,
+                    allChars,
+                    selectedWeights,
+                    outputFolder,
+                    selectedFormats
+                );
+
+                convertBtn.disabled = false;
+
+                if (result.success) {
+                    let message = `🎉 转换完成！总耗时：${result.total_time_seconds.toFixed(2)} 秒\n`;
+                    if (result.paths && result.paths.length > 0) {
+                        message += '\n转换后的文件位于：\n' + result.paths.join('\n');
+                    }
+                    updateResult(message, 'success');
+                } else {
+                    updateResult(result.message, 'error');
+                }
+            }
+   </script>
 </body>
 
 </html>
