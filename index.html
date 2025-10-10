@@ -59,7 +59,7 @@
 			}
 
 			.card {
-				padding: 15px 20px;
+				padding: 8px 10px;
 				border-radius: 8px;
 				border: 1px solid var(--border-color);
 				margin-bottom: 25px;
@@ -192,12 +192,18 @@
 				position: absolute;
 				top: 1px;
 				left: 0;
-				height: 20px;
-				width: 20px;
+				height: 16px;
+				width: 16px;
 				background-color: #eee;
 				border-radius: 4px;
 				border: 1px solid #ddd;
 				transition: all 0.2s ease;
+			}
+			.checkbox-group .checkmark:after {
+				left: 4px !important;
+				top: 0 !important ;
+				width: 4px !important;
+				height: 10px !important;
 			}
 
 			.checkbox-group label:hover input ~ .checkmark {
@@ -324,7 +330,7 @@
 
 	<body>
 		<div class="container">
-			<h1>字体转WOFF工具 🚀</h1>
+			<h1>字体转WOFF/WOFF2工具 🚀</h1>
 			<div class="content">
 				<div class="left">
 					<div class="card">
@@ -350,7 +356,7 @@
 						<textarea
 							id="subsetChars"
 							rows="4"
-							placeholder="你也可以在此处粘贴自定义的文本，例如：Hello World!"
+							placeholder="你也可以在此处输入或粘贴自定义文本。我们会将你输入的字符与你选择的快捷选项（如：全部数字/英文）进行合并，然后转换字体。"
 							style="margin-top: 15px"
 						></textarea>
 					</div>
@@ -378,7 +384,7 @@
 						<h3>开始转换</h3>
 						<button id="convertBtn" onclick="startConversion()" disabled>开始转换</button>
 					</div>
-					<div id="result" class="result info">准备就绪，等待您的操作...</div>
+					<div id="result" class="result info">请完成左侧步骤，等待您的转换...</div>
 				</div>
 			</div>
 		</div>

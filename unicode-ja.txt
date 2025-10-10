@@ -1,0 +1,34 @@
+@font-face {
+  font-family: Japanese Complete Order;
+  font-weight: 400;
+  font-display: swap;
+  unicode-range:
+    U+3000-303F, /* CJK Symbols and Punctuation */
+    U+3040-309F, /* Hiragana */
+    U+30A0-30FF, /* Katakana */
+    U+31F0-31FF, /* Katakana Phonetic Extensions */
+    U+1B000-1B0FF, /* Kana Supplement */
+    U+1B100-1B12F, /* Kana Extended-A / Hiragana Extended-A */
+    U+1B130-1B16F, /* Small Kana Extension */
+    U+1AFF0-1AFFF, /* Kana Extended-B */
+    U+31C0-31EF, /* CJK Strokes */
+    U+2E80-2EFF, /* CJK Radicals Supplement */
+    U+2F00-2FDF, /* Kangxi Radicals */
+    U+2FF0-2FFF, /* Ideographic Description Characters */
+    U+3200-32FF, /* Enclosed CJK Letters and Months */
+    U+3300-33FF, /* CJK Compatibility */
+    U+3400-4DBF, /* CJK Unified Ideographs Extension A */
+    U+4E00-9FFF, /* CJK Unified Ideographs */
+    U+20000-2A6DF, /* CJK Unified Ideographs Extension B */
+    U+2A700-2B73F, /* CJK Unified Ideographs Extension C */
+    U+2B740-2B81F, /* CJK Unified Ideographs Extension D */
+    U+2B820-2CEAF, /* CJK Unified Ideographs Extension E */
+    U+2CEB0-2EBEF, /* CJK Unified Ideographs Extension F */
+    U+30000-3134F, /* CJK Unified Ideographs Extension G */
+    U+F900-FAFF, /* CJK Compatibility Ideographs */
+    U+2F800-2FA1F, /* CJK Compatibility Ideographs Supplement */
+    U+FE10-FE1F, /* Vertical Forms */
+    U+FE30-FE4F, /* CJK Compatibility Forms */
+    U+16FE0-16FFF, /* Ideographic Symbols and Punctuation */
+    U+FF00-FFEF; /* Halfwidth and Fullwidth Forms (includes halfwidth katakana) */
+}

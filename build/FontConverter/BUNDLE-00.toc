@@ -1,3 +1,0 @@
-([('FontConverter',
-   '/Users/m10003000054/work-python/dist/FontConverter',
-   'EXECUTABLE')],)
