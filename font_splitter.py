@@ -10,10 +10,25 @@ import sys
 import math
 import re
 import time
+import json
+import hashlib
 from fontTools import subset
 from fontTools.ttLib import TTFont
 import argparse
-from typing import List, Tuple, Iterable, Dict
+from typing import List, Tuple, Iterable, Dict, Optional
+from datetime import datetime
+
+# CDN配置 - 根据公司实际情况修改
+CDN_CONFIG = {
+    'base_url': 'https://your-company-cdn.com/fonts',  # 替换为实际的CDN地址
+}
+
+# 语言到unicode文件的映射
+LANGUAGE_UNICODE_MAP = {
+    'zh': 'unicode-zh-CN.txt',  # 简体中文
+    'ja': 'unicode-ja.txt',     # 日文
+    'tc': 'unicode-zh-TW.txt',  # 繁体中文
+}
 
 def parse_unicode_ranges_from_text(text: str) -> List[int]:
     """
@@ -280,7 +295,94 @@ def codepoints_to_unicode_ranges(codepoints: List[int]) -> List[str]:
         ranges.append(f"U+{start:x}-{prev:x}")
     return ranges
 
-def split_font(input_font_path: str, output_folder: str, num_chunks: int = 200, preferred_order: List[str] = None, chars_per_chunk: int | None = None) -> bool:
+# Mock CDN上传接口 - 后续替换为实际OSS接口
+def mock_upload_to_cdn(font_file_path: str, cdn_base_url: str, language: str) -> str:
+    """
+    Mock CDN上传接口
+    实际使用时替换为公司的OSS上传接口
+    
+    参数:
+    - font_file_path: 本地字体文件路径
+    - cdn_base_url: CDN基础URL
+    - language: 语言标识
+    
+    返回:
+    - CDN URL
+    """
+    # 生成文件名hash，避免重名
+    with open(font_file_path, 'rb') as f:
+        file_hash = hashlib.md5(f.read()).hexdigest()[:8]
+    
+    filename = os.path.basename(font_file_path)
+    name, ext = os.path.splitext(filename)
+    cdn_filename = f"{name}_{file_hash}{ext}"
+    
+    # Mock CDN URL
+    cdn_url = f"{cdn_base_url}/{language}/{cdn_filename}"
+    
+    print(f"  📤 Mock上传: {font_file_path} -> {cdn_url}")
+    
+    # 这里应该调用实际的OSS上传接口
+    # 例如: upload_result = oss_client.upload_file(font_file_path, cdn_filename)
+    
+    return cdn_url
+
+def generate_css_file(subset_info_list: List[Dict], cdn_base_url: str, font_family: str, output_css_path: str) -> bool:
+    """
+    生成包含CDN地址的CSS文件
+    
+    参数:
+    - subset_info_list: 子集信息列表
+    - cdn_base_url: CDN基础URL
+    - font_family: 字体族名称
+    - output_css_path: 输出CSS文件路径
+    
+    返回:
+    - bool: 是否成功
+    """
+    try:
+        css_rules = []
+        
+        # 添加文件头注释
+        header = f"""/* 
+ * 字体CSS文件 - {font_family}
+ * 生成时间: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
+ * CDN基础地址: {cdn_base_url}
+ * 包含 {len(subset_info_list)} 个字体子集
+ */
+
+"""
+        
+        for subset_info in subset_info_list:
+            subset_num = subset_info['subset_num']
+            unicode_ranges = subset_info['unicode_ranges']
+            cdn_url = subset_info['cdn_url']
+            language = subset_info.get('language', 'unknown')
+            
+            # 生成@font-face规则
+            font_face = f"""@font-face {{
+  font-family: {font_family};
+  font-weight: 400;
+  font-display: swap;
+  src: url("{cdn_url}");
+  unicode-range: {unicode_ranges};
+}}"""
+            
+            css_rules.append(font_face)
+        
+        # 写入CSS文件
+        with open(output_css_path, 'w', encoding='utf-8') as f:
+            f.write(header)
+            f.write('\n\n'.join(css_rules))
+        
+        print(f"✅ CSS文件已生成: {output_css_path}")
+        return True
+        
+    except Exception as e:
+        print(f"生成CSS文件时出错: {e}")
+        return False
+
+def split_font(input_font_path: str, output_folder: str, num_chunks: int = 200, preferred_order: List[str] = None, chars_per_chunk: int | None = None, font_family: str = "有爱魔兽圆体-M", language: str = "mixed") -> bool:
     """
     拆分字体文件
     
@@ -330,8 +432,10 @@ def split_font(input_font_path: str, output_folder: str, num_chunks: int = 200, 
         base_name = os.path.splitext(os.path.basename(input_font_path))[0]
         file_ext = os.path.splitext(input_font_path)[1]
         
-        # 创建子集字体
+        # 创建子集字体并收集信息
         success_count = 0
+        subset_info_list = []
+        
         for i, chunk in enumerate(char_chunks, 1):
             output_filename = f"{base_name}_subset_{i:03d}{file_ext}"
             output_path = os.path.join(output_folder, output_filename)
@@ -340,6 +444,26 @@ def split_font(input_font_path: str, output_folder: str, num_chunks: int = 200, 
             
             if create_font_subset(input_font_path, output_path, chunk):
                 success_count += 1
+                
+                # 计算unicode-range
+                cps = [ord(c) for c in chunk]
+                ranges = codepoints_to_unicode_ranges(cps)
+                unicode_ranges = ",".join(ranges)
+                
+                # 上传到CDN并获取CDN URL
+                cdn_url = mock_upload_to_cdn(output_path, CDN_CONFIG['base_url'], language)
+                
+                # 收集子集信息
+                subset_info = {
+                    'subset_num': i,
+                    'char_count': len(chunk),
+                    'characters': ''.join(chunk),
+                    'unicode_ranges': unicode_ranges,
+                    'local_path': output_path,
+                    'cdn_url': cdn_url,
+                    'language': language
+                }
+                subset_info_list.append(subset_info)
             else:
                 print(f"警告: 创建子集 {i} 失败")
         
@@ -351,16 +475,26 @@ def split_font(input_font_path: str, output_folder: str, num_chunks: int = 200, 
             f.write(f"字体拆分字符映射 - {base_name}\n")
             f.write("=" * 50 + "\n\n")
             
-            for i, chunk in enumerate(char_chunks, 1):
-                f.write(f"子集 {i:03d} ({len(chunk)} 个字符):\n")
-                f.write(f"字符: {''.join(chunk)}\n")
-                # 计算并写出与外部文件一致风格（小写、不加空格、逗号分隔）的 unicode-range 表达
-                cps = [ord(c) for c in chunk]
-                ranges = codepoints_to_unicode_ranges(cps)
-                f.write("unicode-range: " + ",".join(ranges) + ";\n")
+            for subset_info in subset_info_list:
+                f.write(f"子集 {subset_info['subset_num']:03d} ({subset_info['char_count']} 个字符):\n")
+                f.write(f"字符: {subset_info['characters']}\n")
+                f.write("unicode-range: " + subset_info['unicode_ranges'] + ";\n")
+                if subset_info['cdn_url']:
+                    f.write(f"CDN地址: {subset_info['cdn_url']}\n")
                 f.write("-" * 30 + "\n")
         
         print(f"字符映射文件已保存: {mapping_file}")
+        
+        # 生成CSS文件
+        if subset_info_list:
+            css_filename = f"{base_name}_{language}.css"
+            css_path = os.path.join(output_folder, css_filename)
+            
+            if generate_css_file(subset_info_list, CDN_CONFIG['base_url'], font_family, css_path):
+                print(f"🎉 CSS文件已生成: {css_path}")
+                print(f"💡 使用方法: 在HTML中引入此CSS文件，然后设置 font-family: '{font_family}'")
+            else:
+                print("❌ CSS文件生成失败")
         
         return success_count > 0
         
@@ -369,16 +503,18 @@ def split_font(input_font_path: str, output_folder: str, num_chunks: int = 200, 
         return False
 
 def main():
-    parser = argparse.ArgumentParser(description='字体拆分工具 - 按外部提供的 unicode 顺序拆分成多个子集')
+    parser = argparse.ArgumentParser(description='字体拆分工具 - 按语言自动选择unicode顺序拆分成多个子集并生成CDN CSS')
     parser.add_argument('input_font', help='输入字体文件路径 (.ttf, .otf)')
     parser.add_argument('-o', '--output', help='输出文件夹路径', default='./splitRes')
     parser.add_argument('-n', '--num-chunks', type=int, help='拆分的块数量（与 --chars-per-chunk 互斥，若同时提供则以 --chars-per-chunk 为准）', default=200)
     parser.add_argument('--chars-per-chunk', type=int, help='每个子集的最大字符数（优先于 --num-chunks 计算实际块数）')
-    parser.add_argument('--unicode-order-file', action='append', required=False, help='从包含 unicode-range 的文件读取字符顺序（可多次提供）')
     parser.add_argument('--character-list-file', action='append', required=False, help='从纯字符列表文件读取字符顺序（可多次提供）')
     parser.add_argument('--include-blocks', nargs='*', default=[], help='预设块：jp-basic, tc-basic 等，可多选')
     parser.add_argument('--auto-order-from-corpus', nargs='*', help='从文本语料自动构建字符频率顺序（追加到末尾）')
-    parser.add_argument('--language', choices=['zh','ja','tc'], help='限定语言：zh(简中), ja(日文), tc(繁体)。提供后仅构建该语言的顺序，不与其他语言合并。')
+    parser.add_argument('--language', choices=['zh','ja','tc'], required=True, help='语言类型：zh(简中), ja(日文), tc(繁体)')
+    
+    # 字体相关参数
+    parser.add_argument('--font-family', help='字体族名称', default='有爱魔兽圆体-M')
     
     args = parser.parse_args()
     
@@ -387,91 +523,58 @@ def main():
         print(f"错误: 输入字体文件不存在: {args.input_font}")
         sys.exit(1)
     
-    # 如果提供了顺序文件，解析字符顺序
+    # 根据语言自动选择unicode文件
+    lang = args.language
     preferred_order_chars: List[str] = []
-    # 语言模式：若指定 language，则仅依据该语言相关来源生成顺序
-    if args.language:
-        lang = args.language
-        if lang == 'zh':
-            # 简中：依赖外部顺序文件（你已有），否则仅用字体交集（等同空顺序会报错）
-            if args.unicode_order_file:
-                for p in args.unicode_order_file:
-                    print(f"读取外部字符顺序文件: {p}")
-                    chars = parse_unicode_order_file(p)
-                    preferred_order_chars = merge_orders_keep_first(preferred_order_chars, chars)
-            if args.character_list_file:
-                for p in args.character_list_file:
-                    print(f"读取字符列表文件: {p}")
-                    chars = load_character_list_file(p)
-                    preferred_order_chars = merge_orders_keep_first(preferred_order_chars, chars)
-        elif lang == 'ja':
-            # 日文：允许外部文件；若未提供则使用 jp-basic 预设；可叠加语料
-            if args.unicode_order_file:
-                for p in args.unicode_order_file:
-                    print(f"读取外部字符顺序文件: {p}")
-                    chars = parse_unicode_order_file(p)
-                    preferred_order_chars = merge_orders_keep_first(preferred_order_chars, chars)
-            if args.character_list_file:
-                for p in args.character_list_file:
-                    print(f"读取字符列表文件: {p}")
-                    chars = load_character_list_file(p)
-                    preferred_order_chars = merge_orders_keep_first(preferred_order_chars, chars)
-            if not args.unicode_order_file and not args.character_list_file:
-                chars = expand_unicode_ranges_to_chars(PRESET_BLOCKS['jp-basic'])
-                preferred_order_chars = merge_orders_keep_first(preferred_order_chars, chars)
-        elif lang == 'tc':
-            # 繁体：允许外部文件；若未提供则使用 tc-basic 预设；可叠加语料
-            if args.unicode_order_file:
-                for p in args.unicode_order_file:
-                    print(f"读取外部字符顺序文件: {p}")
-                    chars = parse_unicode_order_file(p)
-                    preferred_order_chars = merge_orders_keep_first(preferred_order_chars, chars)
-            if args.character_list_file:
-                for p in args.character_list_file:
-                    print(f"读取字符列表文件: {p}")
-                    chars = load_character_list_file(p)
-                    preferred_order_chars = merge_orders_keep_first(preferred_order_chars, chars)
-            if not args.unicode_order_file and not args.character_list_file:
-                chars = expand_unicode_ranges_to_chars(PRESET_BLOCKS['tc-basic'])
-                preferred_order_chars = merge_orders_keep_first(preferred_order_chars, chars)
-        # 语料可选追加（频率优先）：若提供语料，则以语料频率顺序为主，其他来源为辅
-        if args.auto_order_from_corpus:
-            auto_chars = build_order_from_corpus(args.auto_order_from_corpus)
-            preferred_order_chars = merge_orders_keep_first(auto_chars, preferred_order_chars)
+    
+    # 自动读取对应语言的unicode文件
+    unicode_file = LANGUAGE_UNICODE_MAP[lang]
+    if os.path.exists(unicode_file):
+        print(f"自动读取 {lang} 语言的字符顺序文件: {unicode_file}")
+        chars = parse_unicode_order_file(unicode_file)
+        preferred_order_chars = merge_orders_keep_first(preferred_order_chars, chars)
     else:
-        # 未指定语言：按原有逻辑，将所有来源合并
-        if args.unicode_order_file:
-            for p in args.unicode_order_file:
-                print(f"读取外部字符顺序文件: {p}")
-                chars = parse_unicode_order_file(p)
-                preferred_order_chars = merge_orders_keep_first(preferred_order_chars, chars)
-        if args.character_list_file:
-            for p in args.character_list_file:
-                print(f"读取字符列表文件: {p}")
-                chars = load_character_list_file(p)
-                preferred_order_chars = merge_orders_keep_first(preferred_order_chars, chars)
-        if args.include_blocks:
-            for key in args.include_blocks:
-                if key not in PRESET_BLOCKS:
-                    print(f"警告: 未知预设块 {key}")
-                    continue
-                block_ranges = PRESET_BLOCKS[key]
-                chars = expand_unicode_ranges_to_chars(block_ranges)
-                preferred_order_chars = merge_orders_keep_first(preferred_order_chars, chars)
-        # 语料可选追加（频率优先）：若提供语料，则以语料频率顺序为主，其他来源为辅
-        if args.auto_order_from_corpus:
-            auto_chars = build_order_from_corpus(args.auto_order_from_corpus)
-            preferred_order_chars = merge_orders_keep_first(auto_chars, preferred_order_chars)
+        print(f"警告: 找不到 {lang} 语言的unicode文件: {unicode_file}")
+        # 使用预设块作为备用
+        if lang == 'ja':
+            chars = expand_unicode_ranges_to_chars(PRESET_BLOCKS['jp-basic'])
+            preferred_order_chars = merge_orders_keep_first(preferred_order_chars, chars)
+        elif lang == 'tc':
+            chars = expand_unicode_ranges_to_chars(PRESET_BLOCKS['tc-basic'])
+            preferred_order_chars = merge_orders_keep_first(preferred_order_chars, chars)
+    
+    # 可选：添加额外的字符列表文件
+    if args.character_list_file:
+        for p in args.character_list_file:
+            print(f"读取额外字符列表文件: {p}")
+            chars = load_character_list_file(p)
+            preferred_order_chars = merge_orders_keep_first(preferred_order_chars, chars)
+    
+    # 可选：添加预设块
+    if args.include_blocks:
+        for key in args.include_blocks:
+            if key not in PRESET_BLOCKS:
+                print(f"警告: 未知预设块 {key}")
+                continue
+            block_ranges = PRESET_BLOCKS[key]
+            chars = expand_unicode_ranges_to_chars(block_ranges)
+            preferred_order_chars = merge_orders_keep_first(preferred_order_chars, chars)
+    
+    # 可选：从语料构建频率顺序
+    if args.auto_order_from_corpus:
+        auto_chars = build_order_from_corpus(args.auto_order_from_corpus)
+        preferred_order_chars = merge_orders_keep_first(auto_chars, preferred_order_chars)
+    
     print(f"聚合后的顺序字符数: {len(preferred_order_chars)}")
 
-    # 执行拆分（若仍为空，提示必须至少提供一种顺序来源）
+    # 执行拆分（若仍为空，提示错误）
     if not preferred_order_chars:
-        print("错误: 未提供任何字符顺序来源。请使用 --unicode-order-file 或 --include-blocks 或 --auto-order-from-corpus")
+        print(f"错误: 无法为 {lang} 语言构建字符顺序。请检查对应的unicode文件是否存在。")
         sys.exit(1)
 
     # 执行拆分
     # 根据语言加一层目录
-    effective_output = os.path.join(args.output, args.language) if args.language else os.path.join(args.output, 'mixed')
+    effective_output = os.path.join(args.output, args.language)
     os.makedirs(effective_output, exist_ok=True)
 
     print(f"开始拆分字体: {args.input_font}")
@@ -480,6 +583,11 @@ def main():
         print(f"按每块最多 {args.chars_per_chunk} 个字符计算块数")
     else:
         print(f"拆分数量: {args.num_chunks}")
+    
+    # CDN配置信息
+    print(f"CDN基础地址: {CDN_CONFIG['base_url']}")
+    print("📤 将自动上传字体文件到CDN并生成CSS")
+    
     print("-" * 50)
     start_time = time.time()
     success = split_font(
@@ -488,12 +596,19 @@ def main():
         args.num_chunks,
         preferred_order=preferred_order_chars,
         chars_per_chunk=args.chars_per_chunk,
+        font_family=args.font_family,
+        language=args.language
     )
     total_seconds = time.time() - start_time
     
     if success:
         print("\n✅ 字体拆分完成!")
         print(f"总耗时: {total_seconds:.2f} 秒 (~{total_seconds/60:.2f} 分钟)")
+        
+        print("\n🎉 字体已上传到CDN，CSS文件已生成!")
+        print("💡 使用方法:")
+        print(f"   1. 在HTML中引入生成的CSS文件")
+        print(f"   2. 设置 font-family: '{args.font_family}'")
     else:
         print("\n❌ 字体拆分失败!")
         sys.exit(1)

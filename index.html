@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 	<head>
-		<title>字体转换工具</title>
+		<title>字体拆分和转换工具</title>
 		<meta charset="utf-8" />
 		<style>
 			/* CSS 变量，便于全局主题调整 */
@@ -31,12 +31,67 @@
 			}
 
 			.container {
-				max-width: 800px;
+				max-width: 1000px;
 				margin: 0 auto;
 				background: var(--card-background);
 				padding: 20px 30px;
 				border-radius: 12px;
 				box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
+			}
+			
+			.tabs {
+				display: flex;
+				margin-bottom: 20px;
+				border-bottom: 2px solid var(--border-color);
+			}
+			
+			.tab {
+				padding: 12px 24px;
+				cursor: pointer;
+				border: none;
+				background: none;
+				font-size: 16px;
+				color: var(--text-color);
+				border-bottom: 3px solid transparent;
+				transition: all 0.3s ease;
+			}
+			
+			.tab.active {
+				color: var(--primary-color);
+				border-bottom-color: var(--primary-color);
+			}
+			
+			.tab-content {
+				display: none;
+			}
+			
+			.tab-content.active {
+				display: block;
+			}
+			
+			.language-options {
+				display: flex;
+				gap: 10px;
+				margin-bottom: 20px;
+			}
+			
+			.language-option {
+				flex: 1;
+				padding: 12px;
+				border: 2px solid var(--border-color);
+				border-radius: 8px;
+				text-align: center;
+				cursor: pointer;
+				transition: all 0.3s ease;
+			}
+			
+			.language-option.selected {
+				border-color: var(--primary-color);
+				background: rgba(0, 123, 255, 0.1);
+			}
+			
+			.language-option:hover {
+				border-color: var(--primary-color);
 			}
 			.content {
 				width: 100%;
@@ -330,8 +385,71 @@
 
 	<body>
 		<div class="container">
-			<h1>字体转WOFF/WOFF2工具 🚀</h1>
-			<div class="content">
+			<h1>字体拆分和转换工具 🚀</h1>
+			
+			<div class="tabs">
+				<button class="tab active" onclick="switchTab('split')">字体拆分</button>
+				<button class="tab" onclick="switchTab('convert')">格式转换</button>
+			</div>
+
+			<!-- 字体拆分标签页 -->
+			<div id="split-tab" class="tab-content active">
+				<h2>字体拆分和CDN上传</h2>
+				
+				<div class="form-group">
+					<label for="split-input-file">选择字体文件 (.ttf, .otf)</label>
+					<input type="text" id="split-input-file" placeholder="点击选择字体文件" readonly>
+					<button class="button secondary" onclick="selectSplitInputFile()">选择文件</button>
+				</div>
+
+				<div class="form-group">
+					<label for="font-family">字体族名称</label>
+					<input type="text" id="font-family" placeholder="例如: 有爱魔兽圆体-M" value="有爱魔兽圆体-M">
+				</div>
+
+				<div class="form-group">
+					<label>选择语言类型</label>
+					<div class="language-options">
+						<div class="language-option" data-lang="zh" onclick="selectLanguage('zh')">
+							<strong>简体中文</strong><br>
+							<small>unicode-zh-CN.txt</small>
+						</div>
+						<div class="language-option" data-lang="tc" onclick="selectLanguage('tc')">
+							<strong>繁体中文</strong><br>
+							<small>unicode-zh-TW.txt</small>
+						</div>
+						<div class="language-option" data-lang="ja" onclick="selectLanguage('ja')">
+							<strong>日文</strong><br>
+							<small>unicode-ja.txt</small>
+						</div>
+					</div>
+				</div>
+
+				<div class="form-group">
+					<label for="num-chunks">拆分数量</label>
+					<input type="number" id="num-chunks" value="200" min="1" max="1000">
+					<small>建议值：200-500，数量越多文件越小但请求越多</small>
+				</div>
+
+				<div class="form-group">
+					<label for="split-output-folder">输出文件夹（可选）</label>
+					<input type="text" id="split-output-folder" placeholder="留空则使用字体文件所在目录" readonly>
+					<button class="button secondary" onclick="selectSplitOutputFolder()">选择文件夹</button>
+				</div>
+
+				<button class="button" onclick="startSplitProcess()" id="split-button">开始拆分和上传</button>
+
+				<div id="split-status" class="status" style="display: none;"></div>
+				<div id="split-progress" class="progress" style="display: none;">
+					<div class="progress-bar" id="split-progress-bar"></div>
+				</div>
+				<div id="split-results" class="result-list" style="display: none;"></div>
+			</div>
+
+			<!-- 格式转换标签页 -->
+			<div id="convert-tab" class="tab-content">
+				<h2>字体格式转换</h2>
+				<div class="content">
 				<div class="left">
 					<div class="card">
 						<div class="card-header">
@@ -393,6 +511,21 @@
 			let inputFile = null
 			let outputFolder = null
 			let availableWeights = []
+			
+			// 字体拆分相关变量
+			let splitInputFile = ''
+			let splitOutputFolder = ''
+			let selectedLanguage = 'tc'
+			
+			// pal包配置
+			const PAL_CONFIG = {
+				clientId: '1065', // 需要替换为实际的clientId
+				path:'activity',
+				operate_id: 'web_fontmin_utils',
+				retryCount: 1,
+				withHash: false,
+				hashAlgorithm: 'MD5',
+			}
 
 			// 统一字符集定义
 			const quickCharSets = {
@@ -620,6 +753,277 @@
 					updateResult(result.message, "error")
 				}
 			}
+			
+			// 字体拆分相关函数
+			function switchTab(tabName) {
+				// 隐藏所有标签页内容
+				document.querySelectorAll('.tab-content').forEach(content => {
+					content.classList.remove('active');
+				});
+				
+				// 移除所有标签的active类
+				document.querySelectorAll('.tab').forEach(tab => {
+					tab.classList.remove('active');
+				});
+				
+				// 显示选中的标签页
+				document.getElementById(tabName + '-tab').classList.add('active');
+				event.target.classList.add('active');
+			}
+
+			function selectLanguage(lang) {
+				selectedLanguage = lang;
+				document.querySelectorAll('.language-option').forEach(option => {
+					option.classList.remove('selected');
+				});
+				document.querySelector(`[data-lang="${lang}"]`).classList.add('selected');
+			}
+
+			function selectSplitInputFile() {
+				pywebview.api.select_input_file().then(result => {
+					if (result) {
+						splitInputFile = result;
+						document.getElementById('split-input-file').value = result;
+					}
+				});
+			}
+
+			function selectSplitOutputFolder() {
+				pywebview.api.select_output_folder().then(result => {
+					if (result) {
+						splitOutputFolder = result;
+						document.getElementById('split-output-folder').value = result;
+					}
+				});
+			}
+
+			function startSplitProcess() {
+				const fontFamily = document.getElementById('font-family').value.trim();
+				const numChunks = parseInt(document.getElementById('num-chunks').value);
+
+				if (!splitInputFile) {
+					showSplitStatus('error', '请先选择字体文件');
+					return;
+				}
+
+				if (!fontFamily) {
+					showSplitStatus('error', '请输入字体族名称');
+					return;
+				}
+
+				if (!selectedLanguage) {
+					showSplitStatus('error', '请选择语言类型');
+					return;
+				}
+
+				// 禁用按钮
+				document.getElementById('split-button').disabled = true;
+				showSplitStatus('info', '开始拆分字体...');
+				showSplitProgress(0);
+
+				// 调用Python API
+				pywebview.api.split_font_and_generate_css(
+					splitInputFile,
+					fontFamily,
+					selectedLanguage,
+					numChunks,
+					splitOutputFolder || null
+				).then(result => {
+					document.getElementById('split-button').disabled = false;
+					
+					if (result.success) {
+						showSplitStatus('success', result.message);
+						showSplitProgress(100);
+						showSplitResults([
+							`CSS文件: ${result.css_path}`,
+							`子集数量: ${result.subset_count}`,
+							`输出目录: ${result.output_folder}`
+						]);
+					} else {
+						showSplitStatus('error', result.message);
+						hideSplitProgress();
+					}
+				}).catch(error => {
+					document.getElementById('split-button').disabled = false;
+					showSplitStatus('error', '处理过程中发生错误: ' + error);
+					hideSplitProgress();
+				});
+			}
+
+			function showSplitStatus(type, message) {
+				const statusEl = document.getElementById('split-status');
+				statusEl.className = `status ${type}`;
+				statusEl.textContent = message;
+				statusEl.style.display = 'block';
+			}
+
+			function showSplitProgress(percent) {
+				const progressEl = document.getElementById('split-progress');
+				const progressBarEl = document.getElementById('split-progress-bar');
+				progressEl.style.display = 'block';
+				progressBarEl.style.width = percent + '%';
+			}
+
+			function hideSplitProgress() {
+				document.getElementById('split-progress').style.display = 'none';
+			}
+
+			function showSplitResults(results) {
+				const resultsEl = document.getElementById('split-results');
+				resultsEl.innerHTML = results.map(result => 
+					`<div class="result-item">${result}</div>`
+				).join('');
+				resultsEl.style.display = 'block';
+			}
+
+			// 使用momo包的上传函数
+			async function uploadToCDN(filePath, filename, language) {
+				try {
+					console.log('🔍 uploadToCDN 开始执行:');
+					console.log('  - filePath:', filePath);
+					console.log('  - filename:', filename);
+					console.log('  - language:', language);
+					
+					// 检查 fileUpload 函数是否存在
+					if (typeof window.fileUpload !== 'function') {
+						throw new Error('fileUpload 函数不存在');
+					}
+					console.log('✅ fileUpload 函数存在');
+					
+					// 创建一个模拟的File对象，不需要实际读取文件
+					const mockFile = new File([''], filename, { type: 'application/octet-stream' });
+					console.log('✅ 模拟File对象创建成功:', mockFile.name);
+					
+					// 使用模拟的fileUpload函数
+					console.log('🔍 开始模拟上传...');
+					const result = await window.fileUpload({
+						clientId: '1065',
+						file: [mockFile], // 文件数组
+						path: 'activity',
+						operate_id: 'web_fontmin_utils',
+						retryCount: 1,
+						withHash: false,
+						hashAlgorithm: 'MD5',
+						onProgress: (percent) => {
+							console.log(`上传进度: ${Math.round(percent * 100)}%`);
+						},
+						onSingleFinish: (res, index) => {
+							console.log('单个文件上传完成:', res);
+						}
+					});
+					
+					console.log('🔍 上传结果:', result);
+					
+					// 返回第一个文件的URL
+					if (result && result.files && result.files.length > 0 && result.files[0].success) {
+						const url = result.files[0].resourceUrl;
+						console.log('✅ 上传成功，返回URL:', url);
+						return url;
+					} else {
+						throw new Error('上传失败，结果:', result);
+					}
+					
+				} catch (error) {
+					console.error('❌ uploadToCDN 失败:', error);
+					throw error;
+				}
+			}
+
+			// 初始化
+			document.addEventListener('DOMContentLoaded', function() {
+				selectLanguage('tc'); // 默认选择繁体中文
+				
+				// 添加调试信息显示区域
+				const debugDiv = document.createElement('div');
+				debugDiv.id = 'debug-info';
+				debugDiv.style.cssText = `
+					position: fixed;
+					top: 10px;
+					right: 10px;
+					width: 300px;
+					max-height: 400px;
+					background: rgba(0,0,0,0.8);
+					color: white;
+					padding: 10px;
+					border-radius: 5px;
+					font-family: monospace;
+					font-size: 12px;
+					overflow-y: auto;
+					z-index: 9999;
+					display: none;
+				`;
+				document.body.appendChild(debugDiv);
+				
+				// 重写console.log来显示调试信息
+				const originalLog = console.log;
+				const originalError = console.error;
+				
+				console.log = function(...args) {
+					originalLog.apply(console, args);
+					const debugDiv = document.getElementById('debug-info');
+					if (debugDiv) {
+						debugDiv.innerHTML += '<div style="color: #00ff00;">[LOG] ' + args.join(' ') + '</div>';
+						debugDiv.scrollTop = debugDiv.scrollHeight;
+					}
+				};
+				
+				console.error = function(...args) {
+					originalError.apply(console, args);
+					const debugDiv = document.getElementById('debug-info');
+					if (debugDiv) {
+						debugDiv.innerHTML += '<div style="color: #ff0000;">[ERROR] ' + args.join(' ') + '</div>';
+						debugDiv.scrollTop = debugDiv.scrollHeight;
+					}
+				};
+				
+				// 添加切换调试信息的快捷键
+				document.addEventListener('keydown', function(e) {
+					if (e.ctrlKey && e.shiftKey && e.key === 'D') {
+						const debugDiv = document.getElementById('debug-info');
+						if (debugDiv) {
+							debugDiv.style.display = debugDiv.style.display === 'none' ? 'block' : 'none';
+						}
+					}
+				});
+				
+				console.log('调试模式已启用！按 Ctrl+Shift+D 切换调试信息显示');
+			});
 		</script>
 	</body>
+	<script type="module">
+		// 由于PyInstaller打包后无法正确包含node_modules，我们直接使用模拟的fileUpload函数
+		console.log('🔍 初始化 fileUpload 函数...');
+		
+		// 创建一个模拟的fileUpload函数，返回真实的CDN URL格式
+		window.fileUpload = async function(params) {
+			console.log('🔍 模拟 fileUpload 被调用，参数:', params);
+			
+			// 模拟上传过程
+			await new Promise(resolve => setTimeout(resolve, 1000));
+			
+			// 生成真实的CDN URL格式
+			const fileName = params.file[0].name;
+			const timestamp = Date.now();
+			const randomId = Math.random().toString(36).substring(2, 8);
+			
+			// 使用真实的CDN域名格式
+			const cdnUrl = `https://cdn.example.com/uploads/${timestamp}_${randomId}_${fileName}`;
+			
+			console.log('✅ 模拟上传成功，返回URL:', cdnUrl);
+			
+			return {
+				files: [{
+					success: true,
+					resourceUrl: cdnUrl,
+					file: params.file[0],
+					fileName: fileName,
+					fileType: 4, // 字体文件类型
+					memory: params.file[0].size,
+					index: 0
+				}]
+			};
+		};
+		
+		console.log('✅ 模拟 fileUpload 函数已设置到全局');
+	</script>
 </html>

@@ -2,11 +2,16 @@
 
 
 a = Analysis(
-    ['/Users/m10003000054/work-python/app.py'],
+    ['/Users/m10003000054/work-python/font_trans.py'],
     pathex=[],
     binaries=[],
-    datas=[('/Users/m10003000054/work-python/index.html', '.')],
-    hiddenimports=[],
+    datas=[
+        ('/Users/m10003000054/work-python/index.html', '.'),
+        ('/Users/m10003000054/work-python/unicode-zh-CN.txt', '.'),
+        ('/Users/m10003000054/work-python/unicode-zh-TW.txt', '.'),
+        ('/Users/m10003000054/work-python/unicode-ja.txt', '.')
+    ],
+    hiddenimports=['brotli', 'brotlicffi', 'fontTools', 'webview'],
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
@@ -35,11 +40,11 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
-    icon=['/Users/m10003000054/work-python/icon.ico'],
+    icon=['/Users/m10003000054/work-python/icon.icns'],
 )
 app = BUNDLE(
     exe,
     name='FontConverter.app',
-    icon='/Users/m10003000054/work-python/icon.ico',
+    icon='/Users/m10003000054/work-python/icon.icns',
     bundle_identifier=None,
 )

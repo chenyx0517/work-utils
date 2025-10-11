@@ -1,0 +1,26 @@
+{
+  "name": "work-python",
+  "version": "1.0.0",
+  "description": "打包 app： pyinstaller --noconsole --onefile --windowed --name \"字体转 WOFF2 工具\" font_trans.py",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/chenyx0517/work-utils.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/chenyx0517/work-utils/issues"
+  },
+  "homepage": "https://github.com/chenyx0517/work-utils#readme",
+  "dependencies": {
+    "@diezhi/momo": "^6.1.10",
+    "@diezhi/pal": "^7.4.8",
+    "@types/ali-oss": "^6.16.11",
+    "ali-oss": "^6.23.0"
+  }
+}
