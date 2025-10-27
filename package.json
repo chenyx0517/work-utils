@@ -1,16 +1,27 @@
 {
-  "name": "work-python",
+  "name": "font-converter-tool",
   "version": "1.0.0",
-  "description": "打包 app： pyinstaller --noconsole --onefile --windowed --name \"字体转 WOFF2 工具\" font_trans.py",
-  "main": "index.js",
+  "description": "A desktop application for converting TTF fonts to WOFF2 format with multi-language subset support",
+  "main": "src/font_trans.py",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "start": "python src/font_trans.py",
+    "build": "pyinstaller FontTool.spec",
+    "split-zh": "python src/font_splitter.py assets/fonts/YourFont.ttf --language zh",
+    "split-tc": "python src/font_splitter.py assets/fonts/YourFont.ttf --language tc",
+    "split-ja": "python src/font_splitter.py assets/fonts/YourFont.ttf --language ja"
   },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/chenyx0517/work-utils.git"
   },
-  "keywords": [],
+  "keywords": [
+    "font",
+    "converter",
+    "woff2",
+    "ttf",
+    "desktop",
+    "app"
+  ],
   "author": "",
   "license": "ISC",
   "bugs": {

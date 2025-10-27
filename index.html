@@ -1,508 +1,171 @@
 <!DOCTYPE html>
 <html>
 	<head>
-		<title>字体拆分和转换工具</title>
+		<title>FontTool</title>
 		<meta charset="utf-8" />
-		<style>
-			/* CSS 变量，便于全局主题调整 */
-			:root {
-				--primary-color: #007bff;
-				--primary-dark: #0056b3;
-				--background-color: #f0f2f5;
-				--card-background: #fff;
-				--border-color: #e0e0e0;
-				--text-color: #333;
-				--placeholder-color: #a0a0a0;
-				--success-bg: #d4edda;
-				--success-color: #155724;
-				--error-bg: #f8d7da;
-				--error-color: #721c24;
-				--info-bg: #e2e3e5;
-				--info-color: #383d41;
-				--button-text-color: white;
-				--font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-			}
-
-			body {
-				font-family: var(--font-family);
-				background: var(--background-color);
-				padding: 20px;
-				color: var(--text-color);
-			}
-
-			.container {
-				max-width: 1000px;
-				margin: 0 auto;
-				background: var(--card-background);
-				padding: 20px 30px;
-				border-radius: 12px;
-				box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
-			}
-			
-			.tabs {
-				display: flex;
-				margin-bottom: 20px;
-				border-bottom: 2px solid var(--border-color);
-			}
-			
-			.tab {
-				padding: 12px 24px;
-				cursor: pointer;
-				border: none;
-				background: none;
-				font-size: 16px;
-				color: var(--text-color);
-				border-bottom: 3px solid transparent;
-				transition: all 0.3s ease;
-			}
-			
-			.tab.active {
-				color: var(--primary-color);
-				border-bottom-color: var(--primary-color);
-			}
-			
-			.tab-content {
-				display: none;
-			}
-			
-			.tab-content.active {
-				display: block;
-			}
-			
-			.language-options {
-				display: flex;
-				gap: 10px;
-				margin-bottom: 20px;
-			}
-			
-			.language-option {
-				flex: 1;
-				padding: 12px;
-				border: 2px solid var(--border-color);
-				border-radius: 8px;
-				text-align: center;
-				cursor: pointer;
-				transition: all 0.3s ease;
-			}
-			
-			.language-option.selected {
-				border-color: var(--primary-color);
-				background: rgba(0, 123, 255, 0.1);
-			}
-			
-			.language-option:hover {
-				border-color: var(--primary-color);
-			}
-			.content {
-				width: 100%;
-				display: flex;
-				gap: 10px;
-			}
-			.left {
-				flex: 1;
-			}
-			.right {
-				width: 200px;
-			}
-
-			h1 {
-				text-align: center;
-				color: var(--primary-dark);
-				margin-bottom: 25px;
-				font-size: 24px;
-				font-weight: 600;
-			}
-
-			.card {
-				padding: 8px 10px;
-				border-radius: 8px;
-				border: 1px solid var(--border-color);
-				margin-bottom: 25px;
-				transition: box-shadow 0.3s ease;
-			}
-
-			.card:hover {
-				box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
-			}
-
-			h3 {
-				font-size: 16px;
-				font-weight: 500;
-				color: var(--primary-color);
-				margin: 0;
-			}
-
-			.flex-container {
-				display: flex;
-				align-items: center;
-				justify-content: space-between;
-			}
-
-			button {
-				padding: 10px 18px;
-				cursor: pointer;
-				border: none;
-				border-radius: 6px;
-				background-color: var(--primary-color);
-				color: var(--button-text-color);
-				font-size: 14px;
-				transition: background-color 0.2s ease, transform 0.1s ease;
-				margin-left: 10px;
-			}
-
-			button:hover:not(:disabled) {
-				background-color: var(--primary-dark);
-				transform: translateY(-1px);
-			}
-
-			button:active:not(:disabled) {
-				transform: translateY(1px);
-			}
-
-			button:disabled {
-				background-color: #ccc;
-				cursor: not-allowed;
-			}
-
-			.file-path {
-				padding: 12px;
-				border: 1px dashed var(--border-color);
-				border-radius: 6px;
-				margin-top: 10px;
-				word-break: break-all;
-				background-color: #f8f9fa;
-				transition: border-color 0.2s ease;
-				color: var(--placeholder-color);
-				font-size: 14px;
-			}
-
-			.file-path.active {
-				border-color: var(--primary-color);
-				color: var(--text-color);
-			}
-
-			.result {
-				padding: 15px;
-				border-radius: 6px;
-				margin-top: 15px;
-				min-height: 50px;
-				white-space: pre-wrap;
-				word-wrap: break-word;
-				font-family: monospace;
-				line-height: 1.6;
-				transition: background-color 0.3s ease;
-				animation: fadeIn 0.5s ease-in-out;
-			}
-
-			@keyframes fadeIn {
-				from {
-					opacity: 0;
-				}
-
-				to {
-					opacity: 1;
-				}
-			}
-
-			.result.success {
-				background-color: var(--success-bg);
-				color: var(--success-color);
-			}
-
-			.result.error {
-				background-color: var(--error-bg);
-				color: var(--error-color);
-			}
-
-			.result.info {
-				background-color: var(--background-color);
-				color: var(--info-color);
-			}
-
-			.checkbox-group {
-				display: grid;
-				grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-				gap: 15px;
-				margin-top: 15px;
-			}
-
-			.checkbox-group label {
-				display: flex;
-				align-items: center;
-				cursor: pointer;
-				font-size: 14px;
-				position: relative;
-				padding-left: 30px;
-			}
-
-			.checkbox-group input[type="checkbox"] {
-				position: absolute;
-				opacity: 0;
-				cursor: pointer;
-				height: 0;
-				width: 0;
-			}
-
-			.checkmark {
-				position: absolute;
-				top: 1px;
-				left: 0;
-				height: 16px;
-				width: 16px;
-				background-color: #eee;
-				border-radius: 4px;
-				border: 1px solid #ddd;
-				transition: all 0.2s ease;
-			}
-			.checkbox-group .checkmark:after {
-				left: 4px !important;
-				top: 0 !important ;
-				width: 4px !important;
-				height: 10px !important;
-			}
-
-			.checkbox-group label:hover input ~ .checkmark {
-				background-color: #ccc;
-			}
-
-			.checkbox-group input:checked ~ .checkmark {
-				background-color: var(--primary-color);
-				border-color: var(--primary-color);
-			}
-
-			.checkmark:after {
-				content: "";
-				position: absolute;
-				display: none;
-			}
-
-			.checkbox-group input:checked ~ .checkmark:after {
-				display: block;
-			}
-
-			.checkbox-group .checkmark:after {
-				left: 6px;
-				top: 2px;
-				width: 6px;
-				height: 12px;
-				border: solid white;
-				border-width: 0 3px 3px 0;
-				transform: rotate(45deg);
-			}
-
-			textarea {
-				width: 100%;
-				padding: 10px;
-				border-radius: 6px;
-				border: 1px solid var(--border-color);
-				box-sizing: border-box;
-				margin-top: 10px;
-				resize: vertical;
-				min-height: 80px;
-				font-size: 14px;
-				transition: border-color 0.2s ease;
-			}
-
-			textarea:focus {
-				outline: none;
-				border-color: var(--primary-color);
-				box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25);
-			}
-
-			.weight-options {
-				display: flex;
-				flex-wrap: wrap;
-				gap: 10px;
-				margin-top: 15px;
-			}
-
-			.weight-options label {
-				padding: 8px 15px;
-				border: 1px solid #ccc;
-				border-radius: 20px;
-				cursor: pointer;
-				font-size: 14px;
-				transition: all 0.2s ease;
-				position: relative;
-			}
-
-			.weight-options input[type="checkbox"] {
-				display: none;
-			}
-
-			.weight-options input:checked + label {
-				background-color: var(--primary-color);
-				color: white;
-				border-color: var(--primary-color);
-			}
-
-			.weight-options label:hover:not(:has(input:checked)) {
-				background-color: #f0f0f0;
-			}
-
-			.card-header {
-				display: flex;
-				justify-content: space-between;
-				align-items: center;
-			}
-
-			.card-header h3 {
-				margin: 0;
-			}
-
-			.format-options {
-				display: flex;
-				flex-wrap: wrap;
-				gap: 10px;
-				margin-top: 15px;
-			}
-
-			.format-options label {
-				padding: 8px 15px;
-				border: 1px solid #ccc;
-				border-radius: 20px;
-				cursor: pointer;
-				font-size: 14px;
-				transition: all 0.2s ease;
-				position: relative;
-			}
-
-			.format-options input[type="checkbox"] {
-				display: none;
-			}
-
-			.format-options input:checked + label {
-				background-color: var(--primary-color);
-				color: white;
-				border-color: var(--primary-color);
-			}
-
-			.format-options label:hover:not(:has(input:checked)) {
-				background-color: #f0f0f0;
-			}
-		</style>
+		<link rel="stylesheet" href="styles.css">
 	</head>
 
 	<body>
 		<div class="container">
-			<h1>字体拆分和转换工具 🚀</h1>
+			<!-- 状态显示区域 -->
+			<div id="status-bar" class="status-bar" style="display: none;">
+				<div class="status-content">
+					<span id="status-icon">⏳</span>
+					<span id="status-text">处理中...</span>
+					<button id="cancel-btn" class="cancel-btn" onclick="cancelProcessing()" style="display: none;">取消</button>
+				</div>
+				<div id="progress-bar" class="progress-bar">
+					<div id="progress-fill" class="progress-fill"></div>
+				</div>
+			</div>
 			
 			<div class="tabs">
-				<button class="tab active" onclick="switchTab('split')">字体拆分</button>
-				<button class="tab" onclick="switchTab('convert')">格式转换</button>
+				<button class="tab active" onclick="switchTab('convert')">格式转换</button>
+				<button class="tab" onclick="switchTab('split')">字体拆分</button>
 			</div>
 
 			<!-- 字体拆分标签页 -->
-			<div id="split-tab" class="tab-content active">
-				<h2>字体拆分和CDN上传</h2>
+			<div id="split-tab" class="tab-content">
+				<h2>这里可以拆分字体并上传到CDN 你将得到一个css文件📃</h2>
 				
 				<div class="form-group">
-					<label for="split-input-file">选择字体文件 (.ttf, .otf)</label>
-					<input type="text" id="split-input-file" placeholder="点击选择字体文件" readonly>
-					<button class="button secondary" onclick="selectSplitInputFile()">选择文件</button>
+					<label for="split-input-file">选择字体文件 (.ttf, .woff, .woff2)</label>
+					<div class="input-group drop-zone" id="split-drop-zone" ondrop="handleDrop(event, 'split-input-file')" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)">
+						<input type="text" id="split-input-file" placeholder="请选择字体文件或拖拽文件到此处" readonly>
+						<button class="button secondary" onclick="selectSplitInputFile()">选择文件</button>
+					</div>
+					<div id="split-file-info" class="file-info" style="display: none;"></div>
 				</div>
 
 				<div class="form-group">
-					<label for="font-family">字体族名称</label>
+					<label for="font-family">字体名称 (font-family)</label>
 					<input type="text" id="font-family" placeholder="例如: 有爱魔兽圆体-M" value="有爱魔兽圆体-M">
-				</div>
+				</div>       
 
 				<div class="form-group">
 					<label>选择语言类型</label>
 					<div class="language-options">
 						<div class="language-option" data-lang="zh" onclick="selectLanguage('zh')">
-							<strong>简体中文</strong><br>
-							<small>unicode-zh-CN.txt</small>
+							<strong>简体中文</strong>
 						</div>
 						<div class="language-option" data-lang="tc" onclick="selectLanguage('tc')">
-							<strong>繁体中文</strong><br>
-							<small>unicode-zh-TW.txt</small>
+							<strong>繁体中文</strong>
 						</div>
 						<div class="language-option" data-lang="ja" onclick="selectLanguage('ja')">
-							<strong>日文</strong><br>
-							<small>unicode-ja.txt</small>
+							<strong>日文</strong>
 						</div>
 					</div>
 				</div>
 
 				<div class="form-group">
 					<label for="num-chunks">拆分数量</label>
-					<input type="number" id="num-chunks" value="200" min="1" max="1000">
-					<small>建议值：200-500，数量越多文件越小但请求越多</small>
+					<input type="number" id="num-chunks" value="200" min="1" max="1000" placeholder="建议值：200-500">
 				</div>
 
 				<div class="form-group">
 					<label for="split-output-folder">输出文件夹（可选）</label>
-					<input type="text" id="split-output-folder" placeholder="留空则使用字体文件所在目录" readonly>
-					<button class="button secondary" onclick="selectSplitOutputFolder()">选择文件夹</button>
+					<div class="input-group">
+						<input type="text" id="split-output-folder" placeholder="留空则使用字体文件所在目录" readonly>
+						<button class="button secondary" onclick="selectSplitOutputFolder()">选择文件夹</button>
+					</div>
 				</div>
 
 				<button class="button" onclick="startSplitProcess()" id="split-button">开始拆分和上传</button>
 
-				<div id="split-status" class="status" style="display: none;"></div>
-				<div id="split-progress" class="progress" style="display: none;">
-					<div class="progress-bar" id="split-progress-bar"></div>
+				<!-- 简化的任务状态显示 -->
+				<div id="task-status" class="task-status" style="display: none;">
+					<div class="task-status-content">
+						<div class="task-status-icon" id="task-status-icon">⏳</div>
+						<div class="task-status-text">
+							<div class="task-status-title" id="task-status-title">准备中...</div>
+							<div class="task-status-detail" id="task-status-detail">请稍候</div>
+						</div>
+					</div>
+					<div id="task-progress" class="progress" style="display: none;">
+						<div class="progress-bar" id="task-progress-bar"></div>
+					</div>
 				</div>
+				
 				<div id="split-results" class="result-list" style="display: none;"></div>
 			</div>
 
 			<!-- 格式转换标签页 -->
-			<div id="convert-tab" class="tab-content">
+			<div id="convert-tab" class="tab-content active">
 				<h2>字体格式转换</h2>
-				<div class="content">
-				<div class="left">
-					<div class="card">
-						<div class="card-header">
-							<h3>第一步：选择字体文件</h3>
-							<button onclick="selectInputFile()">选取文件</button>
+				
+				<!-- 文件选择区域 -->
+				<div class="main-drop-zone" id="mainDropZone" ondrop="handleDrop(event, 'convert-input')" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)">
+					<div class="drop-zone-content">
+						<div class="drop-icon">📁</div>
+						<h3>拖拽字体文件到此处</h3>
+						<p>支持 TTF、OTF、WOFF、WOFF2 格式</p>
+					</div>
+					<div id="convert-file-info" class="file-info" style="display: none;"></div>
+				</div>
+
+				<!-- 文件选择区域 -->
+				<div class="file-selection-area">
+					<input type="file" id="fileInput" accept=".ttf,.otf,.woff,.woff2" style="display: none;" onchange="handleFileSelect(event)">
+					<button class="select-file-btn" id="selectFileBtn" onclick="document.getElementById('fileInput').click()">选择文件</button>
+				</div>
+
+				<!-- 配置选项区域 -->
+				<div class="config-section">
+					<div class="config-grid two-column">
+						<!-- 输出位置 -->
+						<div class="config-item">
+							<label>输出位置</label>
+							<div class="output-folder-section">
+								<input type="text" id="outputFolderPath" placeholder="自动检测原文件目录..." readonly>
+								<button type="button" id="selectOutputBtn" onclick="selectOutputFolder()">选择目录</button>
+							</div>
 						</div>
-						<div id="inputFilePath" class="file-path">请点击“选取文件”按钮...</div>
-					</div>
-
-					<div class="card">
-						<div class="card-header">
-							<h3>第二步：选择输出位置（可选）</h3>
-							<button onclick="selectOutputFolder()">选择文件夹</button>
+						
+						<!-- 输出格式 -->
+						<div class="config-item">
+							<label>输出格式</label>
+							<div class="format-options">
+								<label class="format-option">
+									<input type="checkbox" id="format-woff2" name="format" value="woff2" checked />
+									<span>WOFF2</span>
+								</label>
+								<label class="format-option">
+									<input type="checkbox" id="format-woff" name="format" value="woff" />
+									<span>WOFF</span>
+								</label>
+							</div>
 						</div>
-						<div id="outputFolderPath" class="file-path">如果留空，文件将保存在原始字体所在的目录。</div>
-					</div>
 
-					<div class="card">
-						<h3>第三步：定义需要保留的字符（可选）</h3>
-						<p style="font-size: 12px; color: #666">这能大大减小字体文件体积。</p>
-						<div id="quickCharsContainer" class="checkbox-group"></div>
-						<textarea
-							id="subsetChars"
-							rows="4"
-							placeholder="你也可以在此处输入或粘贴自定义文本。我们会将你输入的字符与你选择的快捷选项（如：全部数字/英文）进行合并，然后转换字体。"
-							style="margin-top: 15px"
-						></textarea>
-					</div>
-
-					<div class="card">
-						<h3>第四步：选择输出格式</h3>
-						<p style="font-size: 12px; color: #666">可以选择多种输出格式。</p>
-						<div class="format-options">
-							<input type="checkbox" id="format-woff" name="format" value="woff" />
-							<label for="format-woff">WOFF</label>
-
-							<input type="checkbox" id="format-woff2" name="format" value="woff2" checked />
-							<label for="format-woff2">WOFF2</label>
+						<!-- 字符子集 -->
+						<div class="config-item full-width">
+							<label>字符子集（可选）</label>
+							<p class="help-text">这能大大减小字体文件体积</p>
+							<div id="quickCharsContainer" class="checkbox-group"></div>
+							<textarea
+								id="subsetChars"
+								rows="2"
+								placeholder="输入或粘贴自定义文本，我们会将你输入的字符与快捷选项进行合并..."
+							></textarea>
 						</div>
-					</div>
-					<div class="card" id="weightCard" style="display: none">
-						<h3>第五步：选择字重（可变字体）</h3>
-						<p style="font-size: 12px; color: #666">该字体为可变字体，请选择需要导出的字重版本。</p>
-						<div id="weightOptions" class="weight-options"></div>
+
+						<!-- 字重选择 -->
+						<div class="config-item full-width" id="weightCard" style="display: none">
+							<label>字重选择（可变字体）</label>
+							<p class="help-text">该字体为可变字体，请选择需要导出的字重版本</p>
+							<div id="weightOptions" class="weight-options"></div>
+						</div>
 					</div>
 				</div>
 
-				<div class="card right">
-					<div class="card-header">
-						<h3>开始转换</h3>
-						<button id="convertBtn" onclick="startConversion()" disabled>开始转换</button>
-					</div>
-					<div id="result" class="result info">请完成左侧步骤，等待您的转换...</div>
+
+				<!-- 转换按钮区域 -->
+				<div class="convert-section">
+					<button id="convertBtn" class="convert-btn" onclick="startConversion()" disabled>
+						<span class="btn-icon">🚀</span>
+						<span class="btn-text">开始转换</span>
+					</button>
+					<div id="result" class="result info">请先选择字体文件</div>
 				</div>
 			</div>
 		</div>
@@ -511,11 +174,312 @@
 			let inputFile = null
 			let outputFolder = null
 			let availableWeights = []
+			let selectedFileData = null // 存储文件对象
 			
 			// 字体拆分相关变量
 			let splitInputFile = ''
 			let splitOutputFolder = ''
-			let selectedLanguage = 'tc'
+			let selectedLanguage = 'zh'
+			
+			// 文件转base64函数
+			function fileToBase64(file) {
+				return new Promise((resolve, reject) => {
+					const reader = new FileReader();
+					reader.readAsDataURL(file);
+					reader.onload = () => resolve(reader.result);
+					reader.onerror = error => reject(error);
+				});
+			}
+			
+			// 选择输出目录
+			async function selectOutputFolder() {
+				try {
+					if (window.pywebview && window.pywebview.api) {
+						const folder = await window.pywebview.api.select_output_folder();
+						if (folder) {
+							document.getElementById('outputFolderPath').value = folder;
+							outputFolder = folder;
+						}
+					} else {
+						updateResult("❌ API不可用，请检查应用状态", "error");
+					}
+				} catch (error) {
+					updateResult(`❌ 选择目录失败: ${error.message}`, "error");
+				}
+			}
+			
+			// 文件选择处理函数
+			function handleFileSelect(event) {
+				const file = event.target.files[0];
+				if (file) {
+					selectedFileData = file;
+					inputFile = file.name;
+					updateConvertFileDisplay(inputFile);
+					loadFontInfoFromFile(file, 'convert-file-info');
+					
+					// 自动推断输出目录
+					inferOutputDirectory(file.name);
+					
+					// 启用转换按钮
+					const convertBtn = document.getElementById('convertBtn');
+					convertBtn.disabled = false;
+					
+					// 更新结果提示
+					updateResult("", "success");
+					
+					// 获取字重信息
+					getFontWeightsFromFile(file);
+					
+					// 更新按钮文本
+					const selectBtn = document.getElementById('selectFileBtn');
+					if (selectBtn) {
+						selectBtn.textContent = '重新选择';
+					}
+				}
+			}
+			
+			// 推断输出目录
+			function inferOutputDirectory(filename) {
+				// 尝试推断原文件可能所在的目录
+				const commonDirs = [
+					'~/Desktop',
+					'~/Downloads', 
+					'~/Documents',
+					'~/'
+				];
+				
+				// 显示推断的目录（简化显示）
+				const outputPathInput = document.getElementById('outputFolderPath');
+				if (outputPathInput) {
+					outputPathInput.value = '自动检测原文件目录...';
+					outputPathInput.title = '将尝试在桌面、下载、文档等目录中查找原文件，并输出到相同目录';
+				}
+			}
+			
+			// 拖拽处理函数
+			function handleDragOver(event) {
+				event.preventDefault();
+				event.currentTarget.classList.add('drag-over');
+			}
+			
+			function handleDragLeave(event) {
+				event.currentTarget.classList.remove('drag-over');
+			}
+			
+			function handleDrop(event, targetType) {
+				event.preventDefault();
+				event.currentTarget.classList.remove('drag-over');
+				
+				const files = event.dataTransfer.files;
+				if (files.length > 0) {
+					const file = files[0];
+					const fileName = file.name.toLowerCase();
+					
+					// 检查文件类型
+					if (fileName.endsWith('.ttf') || fileName.endsWith('.otf') || 
+						fileName.endsWith('.woff') || fileName.endsWith('.woff2')) {
+						
+						if (targetType === 'split-input-file') {
+							document.getElementById('split-input-file').value = file.path || file.name;
+							loadFontInfo(file.path || file.name, 'split-file-info');
+						} else if (targetType === 'convert-input') {
+							selectedFileData = file;
+							inputFile = file.name;
+							updateConvertFileDisplay(inputFile);
+							// 使用文件对象获取字体信息
+							loadFontInfoFromFile(file, 'convert-file-info');
+							
+							// 自动推断输出目录
+							inferOutputDirectory(file.name);
+							
+							// 启用转换按钮
+							const convertBtn = document.getElementById('convertBtn');
+							convertBtn.disabled = false;
+							
+							// 更新结果提示
+							updateResult("", "success");
+							
+							// 获取字重信息
+							if (window.pywebview && window.pywebview.api) {
+								window.pywebview.api.get_font_weights(inputFile).then(weights => {
+									availableWeights = weights;
+									const weightCard = document.getElementById("weightCard");
+									const weightOptions = document.getElementById("weightOptions");
+									weightOptions.innerHTML = "";
+									
+									if (weights && weights.length > 0) {
+										weightCard.style.display = "block";
+										weights.forEach((weight) => {
+											const inputId = `weight-${weight}`;
+											weightOptions.innerHTML += `
+												<input type="checkbox" id="${inputId}" name="weight" value="${weight}">
+												<label for="${inputId}">${weight}</label>
+											`;
+										});
+									} else {
+										weightCard.style.display = "none";
+									}
+								});
+							}
+						}
+					} else {
+						updateResult('❌ 请选择字体文件 (.ttf, .otf, .woff, .woff2)', 'error');
+					}
+				}
+			}
+			
+			// 从文件对象加载字体信息
+			function loadFontInfoFromFile(file, infoElementId) {
+				const reader = new FileReader();
+				reader.onload = function(e) {
+					const arrayBuffer = e.target.result;
+					// 这里可以解析字体文件的基本信息
+					// 暂时显示文件基本信息
+					const infoEl = document.getElementById(infoElementId);
+					infoEl.style.display = 'block';
+				};
+				reader.readAsArrayBuffer(file);
+			}
+			
+			// 从文件对象获取字重信息
+			async function getFontWeightsFromFile(file) {
+				const weightCard = document.getElementById("weightCard");
+				const weightOptions = document.getElementById("weightOptions");
+				
+				// 显示加载状态
+				weightCard.style.display = "block";
+				weightOptions.innerHTML = "<div style='text-align: center; color: #666;'>正在分析字体字重...</div>";
+				
+				try {
+					// 将文件转换为base64
+					const fileData = await fileToBase64(file);
+					
+					// 调用后端API获取字重信息
+					if (window.pywebview && window.pywebview.api) {
+						const weights = await window.pywebview.api.get_font_weights_from_data(fileData, file.name);
+						
+						if (weights && weights.length > 0) {
+							availableWeights = weights;
+							weightOptions.innerHTML = "";
+							
+							weights.forEach((weight) => {
+								const inputId = `weight-${weight}`;
+								const weightName = getWeightName(weight);
+								weightOptions.innerHTML += `
+									<input type="checkbox" id="${inputId}" name="weight" value="${weight}">
+									<label for="${inputId}">${weightName}</label>
+								`;
+							});
+						} else {
+							// 如果没有检测到字重信息，使用默认值
+							availableWeights = [400];
+							weightOptions.innerHTML = `
+								<input type="checkbox" id="weight-400" name="weight" value="400" checked>
+								<label for="weight-400">Regular (400)</label>
+							`;
+						}
+					} else {
+						throw new Error('API不可用');
+					}
+				} catch (error) {
+					console.error('获取字重失败:', error);
+					// 出错时使用默认字重
+					availableWeights = [400];
+					weightOptions.innerHTML = `
+						<input type="checkbox" id="weight-400" name="weight" value="400" checked>
+						<label for="weight-400">Regular (400)</label>
+					`;
+				}
+			}
+			
+			// 将数字字重转换为可读名称
+			function getWeightName(weight) {
+				const weightNames = {
+					100: 'Thin (100)',
+					200: 'Extra Light (200)',
+					300: 'Light (300)',
+					400: 'Regular (400)',
+					500: 'Medium (500)',
+					600: 'Semi Bold (600)',
+					700: 'Bold (700)',
+					800: 'Extra Bold (800)',
+					900: 'Black (900)'
+				};
+				return weightNames[weight] || `${weight}`;
+			}
+			
+			// 加载字体信息（保留原有函数用于拆分功能）
+			function loadFontInfo(filePath, infoElementId) {
+				if (window.pywebview && window.pywebview.api) {
+					const info = window.pywebview.api.get_font_info(filePath);
+					if (info.success) {
+						const infoEl = document.getElementById(infoElementId);
+						infoEl.innerHTML = `
+							<div class="font-info">
+								<strong>${info.font_family}</strong> - ${info.font_style}<br>
+								文件大小: ${info.file_size} | 字符数: ${info.character_count.toLocaleString()}
+								${info.is_variable ? '<br><span class="variable-font">🎨 变量字体</span>' : ''}
+							</div>
+						`;
+						infoEl.style.display = 'block';
+					}
+				}
+			}
+			
+			// 取消处理
+			function cancelProcessing() {
+				if (window.pywebview && window.pywebview.api) {
+					const result = window.pywebview.api.cancel_processing();
+					if (result.success) {
+						updateResult(result.message, 'success');
+						hideStatusBar();
+					}
+				}
+			}
+			
+			// 状态栏管理
+			function showStatusBar(message, showCancel = false) {
+				const statusBar = document.getElementById('status-bar');
+				const statusText = document.getElementById('status-text');
+				const cancelBtn = document.getElementById('cancel-btn');
+				
+				statusText.textContent = message;
+				cancelBtn.style.display = showCancel ? 'block' : 'none';
+				statusBar.style.display = 'block';
+			}
+			
+			function hideStatusBar() {
+				document.getElementById('status-bar').style.display = 'none';
+			}
+			
+			function updateProgress(percent) {
+				const progressFill = document.getElementById('progress-fill');
+				progressFill.style.width = percent + '%';
+			}
+			
+			// 更新转换文件显示
+			function updateConvertFileDisplay(filePath) {
+				const dropZone = document.getElementById('mainDropZone');
+				const fileName = filePath.split('/').pop() || filePath.split('\\').pop();
+				dropZone.innerHTML = `
+					<div class="drop-zone-content file-selected">
+						<div class="drop-icon">✅</div>
+						<h3>已选择文件</h3>
+						<p>${fileName}</p>
+					</div>
+				`;
+				
+				// 更新右侧的选择按钮文本
+				const selectBtn = document.getElementById('selectFileBtn');
+				if (selectBtn) {
+					selectBtn.textContent = '重新选择';
+				}
+				
+				// 重新绑定拖拽事件
+				dropZone.setAttribute('ondrop', 'handleDrop(event, "convert-input")');
+				dropZone.setAttribute('ondragover', 'handleDragOver(event)');
+				dropZone.setAttribute('ondragleave', 'handleDragLeave(event)');
+			}
 			
 			// pal包配置
 			const PAL_CONFIG = {
@@ -561,7 +525,7 @@
 				const container = document.getElementById("quickCharsContainer")
 				container.innerHTML = ""
 				Object.entries(quickCharSets).forEach(([label, value], index) => {
-					const isDefault = label === "常用(推荐)"
+					const isDefault = false // 默认不勾选任何字符集，避免误包含全部字符
 					const inputId = `quick-char-${index}`
 					container.innerHTML += `
                     <label for="${inputId}">
@@ -581,118 +545,101 @@
 				resultDiv.className = `result ${type || "info"}`
 			}
 
-			async function selectInputFile() {
-				updateResult("正在呼叫文件选择窗口，请稍候...", "info")
-				inputFile = await window.pywebview.api.select_input_file()
 
-				const inputPathDiv = document.getElementById("inputFilePath")
-				const convertBtn = document.getElementById("convertBtn")
-
-				if (inputFile) {
-					inputPathDiv.innerText = inputFile
-					inputPathDiv.classList.add("active")
-					convertBtn.disabled = false
-					outputFolder = null
-					document.getElementById("outputFolderPath").innerText = "如果留空，文件将保存在原始字体所在的目录。"
-					document.getElementById("outputFolderPath").classList.remove("active")
-					updateResult("✅ 文件选择成功！现在可以继续了。", "success")
-
-					const weights = await window.pywebview.api.get_font_weights(inputFile)
+			async function getFontWeights(filePath) {
+				try {
+					// 检查API是否可用
+					if (!window.pywebview || !window.pywebview.api) {
+						console.log('pywebview API 不可用，跳过字重获取')
+						return
+					}
+					
+					const weights = await window.pywebview.api.get_font_weights(filePath)
 					availableWeights = weights
-
+					
 					const weightCard = document.getElementById("weightCard")
 					const weightOptions = document.getElementById("weightOptions")
 					weightOptions.innerHTML = ""
-
+					
 					if (weights && weights.length > 0) {
 						weightCard.style.display = "block"
 						weights.forEach((weight) => {
 							const inputId = `weight-${weight}`
 							weightOptions.innerHTML += `
-                            <input type="checkbox" id="${inputId}" name="weight" value="${weight}">
-                            <label for="${inputId}">${weight}</label>
-                        `
+								<input type="checkbox" id="${inputId}" name="weight" value="${weight}">
+								<label for="${inputId}">${weight}</label>
+							`
 						})
 					} else {
 						weightCard.style.display = "none"
 					}
-				} else {
-					updateResult("ℹ️ 您取消了文件选择。", "info")
-					inputPathDiv.innerText = "请点击“选取文件”按钮..."
-					inputPathDiv.classList.remove("active")
-					convertBtn.disabled = true
+				} catch (e) {
+					console.error('获取字重失败:', e)
+					// 如果获取字重失败，隐藏字重选择区域
 					document.getElementById("weightCard").style.display = "none"
 				}
 			}
 
-			async function selectOutputFolder() {
-				updateResult("正在呼叫文件夹选择窗口...", "info")
-				const folderPath = await window.pywebview.api.select_output_folder()
-				const outputFolderDiv = document.getElementById("outputFolderPath")
-
-				if (folderPath) {
-					outputFolder = folderPath
-					outputFolderDiv.innerText = `已选择：${outputFolder}`
-					outputFolderDiv.classList.add("active")
-					updateResult("✅ 输出文件夹选择成功！", "success")
-				} else {
-					updateResult("ℹ️ 您取消了文件夹选择。将使用默认输出位置。", "info")
-					outputFolder = null
-					outputFolderDiv.innerText = "如果留空，文件将保存在原始字体所在的目录。"
-					outputFolderDiv.classList.remove("active")
-				}
-			}
-
-			async function startConversion() {
-				if (!inputFile) {
-					updateResult("❌ 请先选择字体文件哦！", "error")
-					return
-				}
-
-				const subsetChars = document.getElementById("subsetChars").value
-				const selectedQuickChars = Array.from(document.querySelectorAll("#quickCharsContainer input:checked")).map(
-					(el) => el.getAttribute("data-chars")
-				)
-
-				const allChars = Array.from(
-					new Set(
-						(
-							subsetChars +
-							selectedQuickChars
-								.map((chars) => {
-									return allUnicodeRanges[chars] || chars
-								})
-								.join("")
-						).split("")
-					)
-				).join("")
-
-				const selectedWeights = Array.from(document.querySelectorAll("#weightOptions input:checked")).map(
-					(el) => el.value
-				)
-
-				const convertBtn = document.getElementById("convertBtn")
-				convertBtn.disabled = true
-
-				updateResult("🚀 转换任务已提交，请耐心等待...", "info")
-
-				const result = await window.pywebview.api.start_conversion(inputFile, allChars, selectedWeights, outputFolder)
-
-				convertBtn.disabled = false
-
-				if (result.success) {
-					let message = `🎉 转换完成！总耗时：${result.total_time_seconds.toFixed(2)} 秒\n`
-					if (result.paths && result.paths.length > 0) {
-						message += "\n转换后的文件位于：\n" + result.paths.join("\n")
+			async function selectInputFile() {
+				console.log('selectInputFile 被调用');
+				try {
+					updateResult("正在呼叫文件选择窗口，请稍候...", "info")
+					
+					// 检查API是否可用
+					if (!window.pywebview || !window.pywebview.api) {
+						console.error('webview API 不可用');
+						updateResult("❌ API不可用，请检查应用状态", "error");
+						return;
 					}
-					updateResult(message, "success")
-				} else {
-					updateResult(result.message, "error")
+					
+					console.log('调用 select_input_file API');
+					inputFile = await window.pywebview.api.select_input_file()
+					console.log('API 返回结果:', inputFile);
+					
+					const convertBtn = document.getElementById("convertBtn")
+					
+					if (inputFile) {
+						updateConvertFileDisplay(inputFile)
+						convertBtn.disabled = false
+						outputFolder = null
+						updateResult("", "success")
+						
+						const weights = await window.pywebview.api.get_font_weights(inputFile)
+						availableWeights = weights
+						
+						const weightCard = document.getElementById("weightCard")
+						const weightOptions = document.getElementById("weightOptions")
+						weightOptions.innerHTML = ""
+						
+						if (weights && weights.length > 0) {
+							weightCard.style.display = "block"
+							weights.forEach((weight) => {
+								const inputId = `weight-${weight}`
+								weightOptions.innerHTML += `
+									<input type="checkbox" id="${inputId}" name="weight" value="${weight}">
+									<label for="${inputId}">${weight}</label>
+								`
+							})
+						} else {
+							weightCard.style.display = "none"
+						}
+					} else {
+						// 无返回时，不提示"取消"，仅静默恢复
+						updateResult("", "info")
+						const convertBtn = document.getElementById("convertBtn")
+						convertBtn.disabled = true
+						document.getElementById("weightCard").style.display = "none"
+					}
+				} catch (e) {
+					console.error('选择输入文件失败:', e)
+					updateResult("选择文件失败，请重试。", "error")
 				}
 			}
 
+
+
 			async function startConversion() {
-				if (!inputFile) {
+				if (!selectedFileData) {
 					updateResult("❌ 请先选择字体文件哦！", "error")
 					return
 				}
@@ -700,6 +647,9 @@
 				const selectedFormats = Array.from(document.querySelectorAll(".format-options input:checked")).map(
 					(el) => el.value
 				)
+
+				console.log("选中的格式:", selectedFormats)
+				console.log("所有格式选项:", document.querySelectorAll(".format-options input"))
 
 				if (selectedFormats.length === 0) {
 					updateResult("❌ 请至少选择一种输出格式！", "error")
@@ -733,8 +683,12 @@
 
 				updateResult("🚀 转换任务已提交，请耐心等待...", "info")
 
-				const result = await window.pywebview.api.start_conversion(
-					inputFile,
+				// 将文件转换为base64发送给后端
+				const fileData = await fileToBase64(selectedFileData);
+				
+				const result = await window.pywebview.api.start_conversion_with_file(
+					fileData,
+					selectedFileData.name,
 					allChars,
 					selectedWeights,
 					outputFolder,
@@ -798,8 +752,17 @@
 			}
 
 			function startSplitProcess() {
+				console.log('开始拆分字体...');
+				
 				const fontFamily = document.getElementById('font-family').value.trim();
 				const numChunks = parseInt(document.getElementById('num-chunks').value);
+
+				console.log('参数检查:', {
+					splitInputFile,
+					fontFamily,
+					selectedLanguage,
+					numChunks
+				});
 
 				if (!splitInputFile) {
 					showSplitStatus('error', '请先选择字体文件');
@@ -807,7 +770,7 @@
 				}
 
 				if (!fontFamily) {
-					showSplitStatus('error', '请输入字体族名称');
+					showSplitStatus('error', '请输入字体名称');
 					return;
 				}
 
@@ -816,10 +779,61 @@
 					return;
 				}
 
-				// 禁用按钮
+				// 禁用按钮并初始化进度显示
 				document.getElementById('split-button').disabled = true;
 				showSplitStatus('info', '开始拆分字体...');
 				showSplitProgress(0);
+				showTaskStatus('正在拆分字体...', '请稍候', true);
+
+				// 开始进度轮询
+				let progressInterval = null;
+				
+				function startProgressPolling() {
+					progressInterval = setInterval(async () => {
+						try {
+							const progress = await pywebview.api.get_progress();
+							console.log('进度更新:', progress);
+							
+							if (progress.is_running) {
+								// 格式化时间信息
+								const timeInfo = `
+									<div class="time-info">
+										<span>⏱️ 已用: ${progress.elapsed_time}</span>
+										<span>⏳ 剩余: ${progress.remaining_time}</span>
+										<span>📊 ${progress.current}/${progress.total}</span>
+									</div>
+								`;
+								
+								// 更新任务状态
+								showTaskStatus(
+									progress.message,
+									timeInfo,
+									true
+								);
+								
+								// 更新进度条
+								updateTaskProgress(progress.percent);
+                            } else if (progress.step === 'completed') {
+                                // 完成时停止轮询并准备隐藏状态卡片
+                                clearInterval(progressInterval);
+                                progressInterval = null;
+                                setTimeout(() => hideTaskStatus(), 1000);
+                            }
+						} catch (error) {
+							console.error('获取进度失败:', error);
+						}
+					}, 500); // 每500ms轮询一次
+				}
+				
+				function stopProgressPolling() {
+					if (progressInterval) {
+						clearInterval(progressInterval);
+						progressInterval = null;
+					}
+				}
+
+				// 开始进度轮询
+				startProgressPolling();
 
 				// 调用Python API
 				pywebview.api.split_font_and_generate_css(
@@ -829,44 +843,111 @@
 					numChunks,
 					splitOutputFolder || null
 				).then(result => {
+					// 停止进度轮询
+					stopProgressPolling();
+					console.log('拆分完成，返回结果:', result);
 					document.getElementById('split-button').disabled = false;
 					
-					if (result.success) {
-						showSplitStatus('success', result.message);
-						showSplitProgress(100);
+                    if (result && result.success) {
+                        // 展示完成提示卡片，并在4秒后自动收起
+                        const successDetail = `
+                            <div class="status-badges">
+                                <span class="badge success">🎉 完成</span>
+                                <span class="badge info">📦 子集: ${result.subset_count}</span>
+                                <span class="badge path" title="点击复制">📃 CSS 路径</span>
+                            </div>
+                            <div style="margin-top:8px;font-size:12px;color:#595959;">${result.css_path}</div>
+                            <div class="task-actions" style="margin-top:10px;">
+                                <button class="mini-button" id="copyCssPathBtn">复制 CSS 路径</button>
+                            </div>
+                        `;
+                        showTaskStatus('拆分与上传完成', successDetail, false);
+                        // 复制按钮
+                        setTimeout(() => {
+                            const btn = document.getElementById('copyCssPathBtn');
+                            if (btn) {
+                                btn.onclick = () => {
+                                    navigator.clipboard.writeText(result.css_path).then(() => {
+                                        btn.textContent = '已复制';
+                                        setTimeout(() => (btn.textContent = '复制 CSS 路径'), 1500);
+                                    });
+                                };
+                            }
+                        }, 0);
+                        // 再保险：结果返回后也安排自动隐藏
+                        setTimeout(() => hideTaskStatus(), 4000);
+						
+						// 同时展示结果列表
 						showSplitResults([
 							`CSS文件: ${result.css_path}`,
 							`子集数量: ${result.subset_count}`,
 							`输出目录: ${result.output_folder}`
 						]);
 					} else {
-						showSplitStatus('error', result.message);
+						console.error('任务失败或返回空结果:', result);
+						showSplitStatus('error', (result && result.message) ? result.message : '任务失败，返回结果为空');
 						hideSplitProgress();
+						// 失败时保留状态卡片，便于查看原因
 					}
-				}).catch(error => {
+                }).catch(error => {
+					// 停止进度轮询
+					stopProgressPolling();
 					document.getElementById('split-button').disabled = false;
+					console.error('处理过程中发生错误:', error);
 					showSplitStatus('error', '处理过程中发生错误: ' + error);
 					hideSplitProgress();
+					// 错误时保留状态卡片
 				});
 			}
 
 			function showSplitStatus(type, message) {
-				const statusEl = document.getElementById('split-status');
-				statusEl.className = `status ${type}`;
-				statusEl.textContent = message;
-				statusEl.style.display = 'block';
+				// 使用任务状态显示消息
+				showTaskStatus(message, '', false);
 			}
 
 			function showSplitProgress(percent) {
-				const progressEl = document.getElementById('split-progress');
-				const progressBarEl = document.getElementById('split-progress-bar');
-				progressEl.style.display = 'block';
-				progressBarEl.style.width = percent + '%';
+				// 使用任务进度显示
+				updateTaskProgress(percent);
 			}
 
 			function hideSplitProgress() {
-				document.getElementById('split-progress').style.display = 'none';
+				// 不需要隐藏，任务状态会统一管理
 			}
+
+			// 任务进度管理函数
+			function showTaskStatus(title, detail = '', showProgress = false) {
+				const taskStatusEl = document.getElementById('task-status');
+				const titleEl = document.getElementById('task-status-title');
+				const detailEl = document.getElementById('task-status-detail');
+				const progressEl = document.getElementById('task-progress');
+				
+				titleEl.textContent = title;
+				
+				// 支持HTML内容，且兼容非字符串
+				if (typeof detail === 'string' && detail.indexOf('<') >= 0) {
+					detailEl.innerHTML = detail;
+				} else {
+					detailEl.textContent = (detail || '').toString();
+				}
+				
+				taskStatusEl.style.display = 'block';
+				
+				if (showProgress) {
+					progressEl.style.display = 'block';
+				} else {
+					progressEl.style.display = 'none';
+				}
+			}
+
+			function hideTaskStatus() {
+				document.getElementById('task-status').style.display = 'none';
+			}
+
+			function updateTaskProgress(percent) {
+				const progressBar = document.getElementById('task-progress-bar');
+				progressBar.style.width = percent + '%';
+			}
+
 
 			function showSplitResults(results) {
 				const resultsEl = document.getElementById('split-results');
@@ -930,100 +1011,17 @@
 			}
 
 			// 初始化
-			document.addEventListener('DOMContentLoaded', function() {
-				selectLanguage('tc'); // 默认选择繁体中文
-				
-				// 添加调试信息显示区域
-				const debugDiv = document.createElement('div');
-				debugDiv.id = 'debug-info';
-				debugDiv.style.cssText = `
-					position: fixed;
-					top: 10px;
-					right: 10px;
-					width: 300px;
-					max-height: 400px;
-					background: rgba(0,0,0,0.8);
-					color: white;
-					padding: 10px;
-					border-radius: 5px;
-					font-family: monospace;
-					font-size: 12px;
-					overflow-y: auto;
-					z-index: 9999;
-					display: none;
-				`;
-				document.body.appendChild(debugDiv);
-				
-				// 重写console.log来显示调试信息
-				const originalLog = console.log;
-				const originalError = console.error;
-				
-				console.log = function(...args) {
-					originalLog.apply(console, args);
-					const debugDiv = document.getElementById('debug-info');
-					if (debugDiv) {
-						debugDiv.innerHTML += '<div style="color: #00ff00;">[LOG] ' + args.join(' ') + '</div>';
-						debugDiv.scrollTop = debugDiv.scrollHeight;
-					}
-				};
-				
-				console.error = function(...args) {
-					originalError.apply(console, args);
-					const debugDiv = document.getElementById('debug-info');
-					if (debugDiv) {
-						debugDiv.innerHTML += '<div style="color: #ff0000;">[ERROR] ' + args.join(' ') + '</div>';
-						debugDiv.scrollTop = debugDiv.scrollHeight;
-					}
-				};
-				
-				// 添加切换调试信息的快捷键
-				document.addEventListener('keydown', function(e) {
-					if (e.ctrlKey && e.shiftKey && e.key === 'D') {
-						const debugDiv = document.getElementById('debug-info');
-						if (debugDiv) {
-							debugDiv.style.display = debugDiv.style.display === 'none' ? 'block' : 'none';
-						}
-					}
-				});
-				
-				console.log('调试模式已启用！按 Ctrl+Shift+D 切换调试信息显示');
+				document.addEventListener('DOMContentLoaded', function() {
+				selectLanguage('zh'); // 默认选择简体中文
 			});
 		</script>
 	</body>
 	<script type="module">
-		// 由于PyInstaller打包后无法正确包含node_modules，我们直接使用模拟的fileUpload函数
-		console.log('🔍 初始化 fileUpload 函数...');
-		
-		// 创建一个模拟的fileUpload函数，返回真实的CDN URL格式
-		window.fileUpload = async function(params) {
-			console.log('🔍 模拟 fileUpload 被调用，参数:', params);
-			
-			// 模拟上传过程
-			await new Promise(resolve => setTimeout(resolve, 1000));
-			
-			// 生成真实的CDN URL格式
-			const fileName = params.file[0].name;
-			const timestamp = Date.now();
-			const randomId = Math.random().toString(36).substring(2, 8);
-			
-			// 使用真实的CDN域名格式
-			const cdnUrl = `https://cdn.example.com/uploads/${timestamp}_${randomId}_${fileName}`;
-			
-			console.log('✅ 模拟上传成功，返回URL:', cdnUrl);
-			
-			return {
-				files: [{
-					success: true,
-					resourceUrl: cdnUrl,
-					file: params.file[0],
-					fileName: fileName,
-					fileType: 4, // 字体文件类型
-					memory: params.file[0].size,
-					index: 0
-				}]
-			};
-		};
-		
-		console.log('✅ 模拟 fileUpload 函数已设置到全局');
+		// ===== CDN 上传解决方案 =====
+		// 直接使用 Python 后端上传，无需前端 fileUpload 函数
+		//
+		console.log('🔍 CDN 上传由 Python 后端直接处理');
+		console.log('💡 无需前端 fileUpload 函数，所有上传逻辑在 Python 后端');
 	</script>
 </html>
+

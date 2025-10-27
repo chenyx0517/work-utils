@@ -1,60 +1,69 @@
 #!/bin/bash
 
-# ==============================================================================
-# 字体转换工具打包脚本 (含图标设置)
-# ==============================================================================
+# FontTool Build Script - 优化版
+# 字体处理工具构建脚本
 
-# 脚本一旦遇到错误，就立即退出
-set -e
+echo "🚀 开始构建 FontTool..."
 
-# --- 变量定义 ---
-SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" &>/dev/null && pwd)
-APP_NAME="FontConverter"
-ICON_FILE="icon.ico" # 假设你的图标文件名为 icon.ico
-
-# --- 1. 清理旧的构建文件 ---
-echo "🚀 开始打包应用..."
-echo "清理旧的构建文件..."
-rm -rf "$SCRIPT_DIR/dist"
-rm -rf "$SCRIPT_DIR/build"
-rm -f "$SCRIPT_DIR/$APP_NAME.spec"
-echo "清理完成。"
-echo "---"
-
-# --- 2. 检查并安装依赖 ---
-echo "检查并安装 Python 依赖..."
-if ! command -v pip &> /dev/null
-then
-    echo "警告：pip 未安装。请先安装 pip。"
+# 检查Python环境
+if ! command -v python3 &> /dev/null; then
+    echo "❌ Python3 未安装，请先安装Python3"
     exit 1
 fi
 
-pip install pyinstaller pywebview fonttools
-echo "依赖安装完成。"
-echo "---"
+# 检查依赖
+echo "📦 检查依赖..."
+pip3 install -r requirements.txt
 
-# --- 3. 使用 PyInstaller 打包 ---
-echo "开始使用 PyInstaller 打包..."
-if [ ! -f "$SCRIPT_DIR/$ICON_FILE" ]; then
-    echo "❌ 错误: 找不到图标文件 '$ICON_FILE'，将不使用图标进行打包。"
-    ICON_PARAM=""
+# 清理旧的构建文件
+echo "🧹 清理旧的构建文件..."
+rm -rf dist/ build/ FontTool.app
+
+# 选择构建模式
+echo "请选择构建模式："
+echo "1) 单文件模式 (文件小，启动较慢)"
+echo "2) 目录模式 (启动快，需要分发整个目录)"
+echo "3) 优化单文件模式 (平衡大小和速度)"
+read -p "请输入选择 (1-3): " choice
+
+case $choice in
+    1)
+        echo "🔨 使用单文件模式构建..."
+        pyinstaller FontTool.spec
+        ;;
+    2)
+        echo "🔨 使用目录模式构建 (推荐，启动最快)..."
+        pyinstaller FontTool-dir.spec
+        ;;
+    3)
+        echo "🔨 使用优化单文件模式构建..."
+        pyinstaller FontTool-optimized.spec
+        ;;
+    *)
+        echo "❌ 无效选择，使用默认单文件模式"
+        pyinstaller FontTool.spec
+        ;;
+esac
+
+# 检查构建结果
+if [ -d "dist/FontTool.app" ]; then
+    echo "✅ 构建成功！"
+    echo "📱 应用位置: dist/FontTool.app"
+    echo "🎯 运行命令: open dist/FontTool.app"
+    
+    # 显示文件大小
+    app_size=$(du -sh dist/FontTool.app | cut -f1)
+    echo "📊 应用大小: $app_size"
+    
+    # 性能提示
+    if [ "$choice" = "2" ]; then
+        echo "💡 提示: 目录模式启动最快，但需要分发整个 FontTool.app 目录"
+    elif [ "$choice" = "3" ]; then
+        echo "💡 提示: 优化单文件模式平衡了文件大小和启动速度"
+    else
+        echo "💡 提示: 单文件模式便于分发，但启动较慢"
+    fi
 else
-    ICON_PARAM="--icon=$SCRIPT_DIR/$ICON_FILE"
-    echo "✔️ 找到图标文件，将在打包时使用它。"
-fi
-
-pyinstaller --noconsole --onefile \
-    --name "$APP_NAME" \
-    --add-data "$SCRIPT_DIR/index.html:." \
-    $ICON_PARAM \
-    "$SCRIPT_DIR/app.py"
-echo "---"
-
-# --- 4. 检查打包结果并输出路径 ---
-if [ -f "$SCRIPT_DIR/dist/$APP_NAME" ]; then
-    echo "✅ 打包成功！"
-    echo "可执行文件位于: $SCRIPT_DIR/dist/$APP_NAME"
-else
-    echo "❌ 打包失败，请检查上面的错误信息。"
+    echo "❌ 构建失败，请检查错误信息"
     exit 1
 fi
