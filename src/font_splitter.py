@@ -293,7 +293,10 @@ def codepoints_to_unicode_ranges(codepoints: List[int]) -> List[str]:
         ranges.append(f"U+{start:x}-{prev:x}")
     return ranges
 
-def upload_font_data_to_cdn(font_data: bytes, filename: str, language: str) -> str:
+# 删除了对字体文件追加 ?x-oss-process 的压缩参数逻辑
+
+
+def upload_font_data_to_cdn(font_data: bytes, filename: str, language: str, on_progress=None) -> str:
     """上传字体数据到CDN"""
     try:
         import requests
@@ -334,7 +337,8 @@ def upload_font_data_to_cdn(font_data: bytes, filename: str, language: str) -> s
             "path": "activity",   
             "file_type": file_ext, # 添加文件类型
             "file_md5": file_hash,
-            "operate_id": "web_fontmin_utils",  
+            "operate_id": "web_fontmin_utils",
+            "status": 2  # 添加状态参数
         }
         
         print(f"🔍 第一步：获取STS凭证")
@@ -382,22 +386,39 @@ def upload_font_data_to_cdn(font_data: bytes, filename: str, language: str) -> s
         print(f"🔍 第二步：上传文件到OSS")
         print(f"🔍 上传路径: {upload_path}")
         
-        result = bucket_obj.put_object(upload_path, font_data)
+        # 分片上传阈值 (100MB)
+        PART_UPLOAD_THRESHOLD = 100 * 1024 * 1024
+        
+        if len(font_data) <= PART_UPLOAD_THRESHOLD:
+            # 小文件直接上传
+            if on_progress:
+                on_progress({'percent': 0})
+            result = bucket_obj.put_object(upload_path, font_data)
+            if on_progress:
+                on_progress({'percent': 100})
+        else:
+            # 大文件分片上传
+            print(f"🔍 文件大小 {len(font_data)} bytes，使用分片上传")
+            result = bucket_obj.multipart_upload(upload_path, font_data, {
+                'progress': lambda p: on_progress({'percent': int(p * 100)}) if on_progress else None,
+                'part_size': 10 * 1024 * 1024,  # 10MB 分片大小
+                'parallel': 3  # 并行上传数
+            })
         
         if result.status == 200:
-            # 构建CDN URL - 使用bucket_domain
+            # 构建CDN URL - 使用bucket_domain（不追加任何图片处理参数）
             bucket_domain = oss_data.get('bucket_domain', f"{bucket}.oss-{region}.aliyuncs.com")
             cdn_url = f"https://{bucket_domain}/{upload_path}"
             print(f"✅ OSS上传成功: {cdn_url}")
             return cdn_url
         else:
             raise Exception(f"OSS上传失败: {result}")
-            
+        
     except ImportError:
         print("⚠️ oss2库未安装，无法直接上传到OSS")
         print("💡 请运行: pip install oss2")
         raise Exception("需要安装oss2库")
-            
+        
     except ImportError:
         print("⚠️ requests库未安装，无法使用Python后端上传")
         print("💡 请运行: pip install requests")
@@ -406,7 +427,7 @@ def upload_font_data_to_cdn(font_data: bytes, filename: str, language: str) -> s
         print(f"❌ Python后端上传失败: {e}")
         raise
 
-def upload_file_to_cdn(font_file_path: str, language: str) -> str:
+def upload_file_to_cdn(font_file_path: str, language: str, on_progress=None) -> str:
     """
     上传字体文件到CDN
     """
@@ -417,25 +438,15 @@ def upload_file_to_cdn(font_file_path: str, language: str) -> str:
         
         filename = os.path.basename(font_file_path)
         
-        # 使用本地的上传函数
-        cdn_url = upload_font_data_to_cdn(font_data, filename, language)
+        # 使用本地的上传函数，传递进度回调
+        cdn_url = upload_font_data_to_cdn(font_data, filename, language, on_progress)
         
         print(f"✅ 上传成功: {cdn_url}")
         return cdn_url
         
     except Exception as e:
         print(f"❌ 上传失败: {e}")
-        print("🔄 使用fallback机制...")
-        
-        # 生成fallback URL
-        filename = os.path.basename(font_file_path)
-        name, ext = os.path.splitext(filename)
-        file_hash = hashlib.md5(open(font_file_path, 'rb').read()).hexdigest()[:8]
-        fallback_filename = f"{name}_{file_hash}{ext}"
-        fallback_url = f"https://awe-test.diezhi.net/fallback/{language}/{fallback_filename}"
-        
-        print(f"📤 Fallback URL: {fallback_url}")
-        return fallback_url
+        raise  # 直接抛出异常，不返回fallback URL
 
 def generate_css_file(subset_info_list: List[Dict], font_family: str, output_css_path: str) -> bool:
     """
