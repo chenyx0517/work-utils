@@ -205,6 +205,213 @@ class Api:
             "current_task": self.current_task
         }
 
+    def get_progress(self):
+        """获取当前处理进度"""
+        return {
+            "is_running": self.is_processing,
+            "current_task": self.current_task,
+            "progress": 0  # 可以后续添加具体的进度百分比
+        }
+
+    def split_font_and_generate_css(self, input_font_path, font_family, language, num_chunks, output_folder=None):
+        """拆分字体并生成CSS"""
+        if self.is_processing:
+            return {"success": False, "message": "⚠️ 正在处理其他任务，请稍后再试"}
+        
+        if not input_font_path:
+            return {"success": False, "message": "✗ 错误: 未选择字体文件"}
+        
+        # 验证文件格式
+        if not input_font_path.lower().endswith(('.ttf', '.otf', '.woff', '.woff2')):
+            return {"success": False, "message": f"✗ 错误: 不支持的文件格式 - {input_font_path}"}
+        
+        # 设置输出目录
+        if not output_folder:
+            output_folder = os.path.dirname(input_font_path)
+        
+        self.is_processing = True
+        self.current_task = f"拆分字体 {os.path.basename(input_font_path)}"
+        
+        try:
+            # 导入拆分模块
+            from font_splitter import split_font
+            
+            # 根据语言选择unicode文件
+            language_unicode_map = {
+                'zh': 'unicode-zh-CN.txt',
+                'tc': 'unicode-zh-TW.txt', 
+                'ja': 'unicode-ja.txt'
+            }
+            
+            unicode_file = language_unicode_map.get(language, 'unicode-zh-CN.txt')
+            unicode_path = os.path.join(os.path.dirname(__file__), '..', unicode_file)
+            
+            if not os.path.exists(unicode_path):
+                return {"success": False, "message": f"✗ 错误: 找不到语言文件 {unicode_file}"}
+            
+            # 读取字符顺序
+            with open(unicode_path, 'r', encoding='utf-8') as f:
+                preferred_order = list(f.read().strip())
+            
+            # 执行拆分
+            success = split_font(
+                input_font_path,
+                output_folder,
+                num_chunks=num_chunks,
+                preferred_order=preferred_order,
+                font_family=font_family,
+                language=language
+            )
+            
+            if success:
+                return {"success": True, "message": "🎉 字体拆分完成！CSS文件已生成。"}
+            else:
+                return {"success": False, "message": "✗ 字体拆分失败"}
+                
+        except Exception as e:
+            return {"success": False, "message": f"✗ 拆分过程中发生错误: {str(e)}"}
+        finally:
+            self.is_processing = False
+            self.current_task = None
+
+    def split_font_and_generate_css_with_file(self, file_data, filename, font_family, language, num_chunks, output_folder=None):
+        """使用文件数据拆分字体并生成CSS"""
+        if self.is_processing:
+            return {"success": False, "message": "⚠️ 正在处理其他任务，请稍后再试"}
+        
+        if not file_data:
+            return {"success": False, "message": "✗ 错误: 未接收到文件数据"}
+        
+        try:
+            # 解析base64数据
+            import base64
+            if file_data.startswith('data:'):
+                file_data = file_data.split(',')[1]
+            
+            # 解码base64
+            file_bytes = base64.b64decode(file_data)
+            
+            # 创建临时文件
+            import tempfile
+            temp_dir = tempfile.mkdtemp()
+            temp_file_path = os.path.join(temp_dir, filename)
+            
+            # 写入临时文件
+            with open(temp_file_path, 'wb') as f:
+                f.write(file_bytes)
+            
+            # 验证文件格式
+            if not filename.lower().endswith(('.ttf', '.otf', '.woff', '.woff2')):
+                return {"success": False, "message": f"✗ 错误: 不支持的文件格式 - {filename}"}
+            
+            # 设置输出目录
+            if not output_folder:
+                desktop_path = os.path.expanduser("~/Desktop")
+                if os.path.exists(desktop_path):
+                    output_folder = desktop_path
+                else:
+                    output_folder = os.getcwd()
+            
+            self.is_processing = True
+            self.current_task = f"拆分字体 {filename}"
+            
+            try:
+                # 导入拆分模块
+                from font_splitter import split_font
+                
+                # 根据语言选择unicode文件
+                language_unicode_map = {
+                    'zh': 'unicode-zh-CN.txt',
+                    'tc': 'unicode-zh-TW.txt', 
+                    'ja': 'unicode-ja.txt'
+                }
+                
+                unicode_file = language_unicode_map.get(language, 'unicode-zh-CN.txt')
+                
+                # 尝试多个可能的路径
+                possible_paths = [
+                    # 开发环境路径
+                    os.path.join(os.path.dirname(__file__), '..', unicode_file),
+                    os.path.join(os.path.dirname(__file__), '..', 'unicode', unicode_file),
+                    
+                    # macOS应用包路径 - 从Frameworks目录到Resources (修复路径)
+                    os.path.join(os.path.dirname(__file__), '..', 'Resources', 'unicode', unicode_file),
+                    os.path.join(os.path.dirname(__file__), '..', 'Resources', unicode_file),
+                    
+                    # macOS应用包路径 - 从MacOS目录到Resources
+                    os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'Resources', 'unicode', unicode_file),
+                    os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'Resources', unicode_file),
+                    
+                    # 当前工作目录路径
+                    os.path.join(os.getcwd(), unicode_file),
+                    os.path.join(os.getcwd(), 'unicode', unicode_file),
+                    
+                    # 绝对路径
+                    os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', unicode_file),
+                    os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'unicode', unicode_file),
+                    
+                    # 直接文件名
+                    unicode_file
+                ]
+                
+                unicode_path = None
+                for path in possible_paths:
+                    if os.path.exists(path):
+                        unicode_path = path
+                        break
+                
+                if not unicode_path:
+                    return {"success": False, "message": f"✗ 错误: 找不到语言文件 {unicode_file}，尝试的路径: {possible_paths}"}
+                
+                # 读取字符顺序
+                from font_splitter import parse_unicode_order_file
+                preferred_order = parse_unicode_order_file(unicode_path)
+                
+                # 执行拆分
+                success = split_font(
+                    temp_file_path,
+                    output_folder,
+                    num_chunks=num_chunks,
+                    preferred_order=preferred_order,
+                    font_family=font_family,
+                    language=language
+                )
+                
+                if success:
+                    # 查找生成的CSS文件
+                    base_name = os.path.splitext(filename)[0]
+                    css_filename = f"{base_name}_{language}.css"
+                    css_path = os.path.join(output_folder, css_filename)
+                    
+                    # 计算子集数量（简单估算）
+                    subset_count = min(num_chunks, 200)  # 实际应该从split_font函数返回
+                    
+                    return {
+                        "success": True, 
+                        "message": "🎉 字体拆分完成！CSS文件已生成。",
+                        "subset_count": subset_count,
+                        "css_path": css_path
+                    }
+                else:
+                    return {"success": False, "message": "✗ 字体拆分失败"}
+                    
+            except Exception as e:
+                return {"success": False, "message": f"✗ 拆分过程中发生错误: {str(e)}"}
+            finally:
+                self.is_processing = False
+                self.current_task = None
+                
+        except Exception as e:
+            return {"success": False, "message": f"✗ 错误: 文件处理失败 - {str(e)}"}
+        finally:
+            # 清理临时文件
+            try:
+                if 'temp_file_path' in locals():
+                    os.remove(temp_file_path)
+                    os.rmdir(temp_dir)
+            except:
+                pass
+
     def cancel_processing(self):
         """取消当前处理"""
         if self.is_processing:

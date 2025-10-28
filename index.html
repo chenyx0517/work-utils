@@ -4,6 +4,161 @@
 		<title>FontTool</title>
 		<meta charset="utf-8" />
 		<link rel="stylesheet" href="styles.css">
+		<script>
+			// 标签页切换函数
+			function switchTab(tabName) {
+				console.log('开始切换标签页:', tabName);
+				
+				// 隐藏所有标签页内容
+				const convertTab = document.getElementById('convert-tab');
+				const splitTab = document.getElementById('split-tab');
+				
+				console.log('convert-tab:', convertTab);
+				console.log('split-tab:', splitTab);
+				
+				// 移除所有标签的active类
+				const tabs = document.querySelectorAll('.tab');
+				tabs.forEach(tab => {
+					tab.classList.remove('active');
+				});
+				
+				// 根据tabName切换
+				if (tabName === 'convert') {
+					if (convertTab) convertTab.classList.add('active');
+					if (splitTab) splitTab.classList.remove('active');
+					// 为对应的按钮添加active类
+					const convertBtn = document.querySelector('[onclick="switchTab(\'convert\')"]');
+					if (convertBtn) convertBtn.classList.add('active');
+					console.log('切换到格式转换');
+				} else if (tabName === 'split') {
+					if (convertTab) convertTab.classList.remove('active');
+					if (splitTab) splitTab.classList.add('active');
+					// 为对应的按钮添加active类
+					const splitBtn = document.querySelector('[onclick="switchTab(\'split\')"]');
+					if (splitBtn) splitBtn.classList.add('active');
+					console.log('切换到字体拆分');
+				}
+				
+				console.log('标签页切换完成');
+			}
+			
+			// 处理拆分文件选择
+			function handleSplitFileSelect(event) {
+				console.log('文件选择被触发:', event);
+				const file = event.target.files[0];
+				console.log('选择的文件:', file);
+				if (file) {
+					// 存储文件对象，用于后续处理
+					window.splitFileData = file;
+					window.splitInputFile = file.name; // 存储文件名
+					document.getElementById('split-input-file').value = file.name;
+					
+					console.log('文件信息已更新:', file.name);
+					
+					// 显示文件信息
+					const infoEl = document.getElementById('split-file-info');
+					infoEl.innerHTML = `
+						<div class="font-info">
+							<strong>${file.name}</strong><br>
+							文件大小: ${(file.size / 1024).toFixed(1)} KB
+						</div>
+					`;
+					infoEl.style.display = 'block';
+					console.log('文件信息已显示');
+				} else {
+					console.log('没有选择文件');
+				}
+			}
+			
+			// 选择语言
+			function selectLanguage(lang) {
+				window.selectedLanguage = lang;
+				document.querySelectorAll('.language-option').forEach(option => {
+					option.classList.remove('selected');
+				});
+				document.querySelector(`[data-lang="${lang}"]`).classList.add('selected');
+			}
+			
+			// 文件转base64函数
+			function fileToBase64(file) {
+				return new Promise((resolve, reject) => {
+					const reader = new FileReader();
+					reader.readAsDataURL(file);
+					reader.onload = () => resolve(reader.result);
+					reader.onerror = error => reject(error);
+				});
+			}
+			
+			// 开始拆分处理
+			function startSplitProcess() {
+				console.log('开始拆分字体...');
+				console.log('当前全局变量状态:', {
+					splitFileData: window.splitFileData,
+					splitInputFile: window.splitInputFile,
+					selectedLanguage: window.selectedLanguage
+				});
+				
+				const fontFamily = document.getElementById('font-family').value.trim();
+				const numChunks = parseInt(document.getElementById('num-chunks').value);
+
+				console.log('参数检查:', {
+					splitInputFile: window.splitInputFile,
+					fontFamily,
+					selectedLanguage: window.selectedLanguage,
+					numChunks
+				});
+
+				if (!window.splitInputFile) {
+					alert('请先选择字体文件');
+					return;
+				}
+
+				if (!fontFamily) {
+					alert('请输入字体名称');
+					return;
+				}
+
+				if (!window.selectedLanguage) {
+					alert('请选择语言类型');
+					return;
+				}
+
+				// 禁用按钮
+				document.getElementById('split-button').disabled = true;
+				alert('开始拆分字体...');
+
+				// 调用Python API
+				if (window.splitFileData) {
+					// 使用文件数据
+					fileToBase64(window.splitFileData).then(fileData => {
+						return pywebview.api.split_font_and_generate_css_with_file(
+							fileData,
+							window.splitFileData.name,
+							fontFamily,
+							window.selectedLanguage,
+							numChunks,
+							window.splitOutputFolder || null
+						);
+					}).then(result => {
+						console.log('拆分完成，返回结果:', result);
+						document.getElementById('split-button').disabled = false;
+						
+						if (result && result.success) {
+							alert(`拆分完成！生成了 ${result.subset_count} 个子集文件`);
+						} else {
+							alert('拆分失败: ' + (result.message || '未知错误'));
+						}
+					}).catch(error => {
+						console.error('拆分过程中出错:', error);
+						document.getElementById('split-button').disabled = false;
+						alert('拆分过程中出错: ' + error.message);
+					});
+				} else {
+					alert('文件数据丢失，请重新选择文件');
+					document.getElementById('split-button').disabled = false;
+				}
+			}
+		</script>
 	</head>
 
 	<body>
@@ -30,17 +185,18 @@
 				<h2>这里可以拆分字体并上传到CDN 你将得到一个css文件📃</h2>
 				
 				<div class="form-group">
-					<label for="split-input-file">选择字体文件 (.ttf, .woff, .woff2)</label>
+					<label for="split-input-file">选择字体文件 (.ttf, .otf, .woff, .woff2)</label>
 					<div class="input-group drop-zone" id="split-drop-zone" ondrop="handleDrop(event, 'split-input-file')" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)">
 						<input type="text" id="split-input-file" placeholder="请选择字体文件或拖拽文件到此处" readonly>
-						<button class="button secondary" onclick="selectSplitInputFile()">选择文件</button>
+						<input type="file" id="splitFileInput" accept=".ttf,.otf,.woff,.woff2" style="display: none;" onchange="handleSplitFileSelect(event)">
+						<button class="button secondary" onclick="console.log('点击选择文件按钮'); document.getElementById('splitFileInput').click();">选择文件</button>
 					</div>
 					<div id="split-file-info" class="file-info" style="display: none;"></div>
 				</div>
 
 				<div class="form-group">
 					<label for="font-family">字体名称 (font-family)</label>
-					<input type="text" id="font-family" placeholder="例如: 有爱魔兽圆体-M" value="有爱魔兽圆体-M">
+					<input type="text" id="font-family" placeholder="请输入字体名称，例如: MyFont">
 				</div>       
 
 				<div class="form-group">
@@ -178,19 +334,10 @@
 			
 			// 字体拆分相关变量
 			let splitInputFile = ''
-			let splitOutputFolder = ''
+			window.splitOutputFolder = ''
 			let selectedLanguage = 'zh'
 			
 			// 文件转base64函数
-			function fileToBase64(file) {
-				return new Promise((resolve, reject) => {
-					const reader = new FileReader();
-					reader.readAsDataURL(file);
-					reader.onload = () => resolve(reader.result);
-					reader.onerror = error => reject(error);
-				});
-			}
-			
 			// 选择输出目录
 			async function selectOutputFolder() {
 				try {
@@ -708,31 +855,9 @@
 				}
 			}
 			
-			// 字体拆分相关函数
-			function switchTab(tabName) {
-				// 隐藏所有标签页内容
-				document.querySelectorAll('.tab-content').forEach(content => {
-					content.classList.remove('active');
-				});
-				
-				// 移除所有标签的active类
-				document.querySelectorAll('.tab').forEach(tab => {
-					tab.classList.remove('active');
-				});
-				
-				// 显示选中的标签页
-				document.getElementById(tabName + '-tab').classList.add('active');
-				event.target.classList.add('active');
-			}
-
-			function selectLanguage(lang) {
-				selectedLanguage = lang;
-				document.querySelectorAll('.language-option').forEach(option => {
-					option.classList.remove('selected');
-				});
-				document.querySelector(`[data-lang="${lang}"]`).classList.add('selected');
-			}
-
+			// 添加拆分文件数据变量
+			let splitFileData = null;
+			
 			function selectSplitInputFile() {
 				pywebview.api.select_input_file().then(result => {
 					if (result) {
@@ -745,7 +870,7 @@
 			function selectSplitOutputFolder() {
 				pywebview.api.select_output_folder().then(result => {
 					if (result) {
-						splitOutputFolder = result;
+						window.splitOutputFolder = result;
 						document.getElementById('split-output-folder').value = result;
 					}
 				});
@@ -753,18 +878,23 @@
 
 			function startSplitProcess() {
 				console.log('开始拆分字体...');
+				console.log('当前全局变量状态:', {
+					splitFileData: window.splitFileData,
+					splitInputFile: window.splitInputFile,
+					selectedLanguage: window.selectedLanguage
+				});
 				
 				const fontFamily = document.getElementById('font-family').value.trim();
 				const numChunks = parseInt(document.getElementById('num-chunks').value);
 
 				console.log('参数检查:', {
-					splitInputFile,
+					splitInputFile: window.splitInputFile,
 					fontFamily,
-					selectedLanguage,
+					selectedLanguage: window.selectedLanguage,
 					numChunks
 				});
 
-				if (!splitInputFile) {
+				if (!window.splitInputFile) {
 					showSplitStatus('error', '请先选择字体文件');
 					return;
 				}
@@ -774,7 +904,7 @@
 					return;
 				}
 
-				if (!selectedLanguage) {
+				if (!window.selectedLanguage) {
 					showSplitStatus('error', '请选择语言类型');
 					return;
 				}
@@ -836,13 +966,18 @@
 				startProgressPolling();
 
 				// 调用Python API
-				pywebview.api.split_font_and_generate_css(
-					splitInputFile,
-					fontFamily,
-					selectedLanguage,
-					numChunks,
-					splitOutputFolder || null
-				).then(result => {
+				if (window.splitFileData) {
+					// 使用文件数据
+					fileToBase64(window.splitFileData).then(fileData => {
+						return pywebview.api.split_font_and_generate_css_with_file(
+							fileData,
+							window.splitFileData.name,
+							fontFamily,
+							window.selectedLanguage,
+							numChunks,
+							window.splitOutputFolder || null
+						);
+					}).then(result => {
 					// 停止进度轮询
 					stopProgressPolling();
 					console.log('拆分完成，返回结果:', result);

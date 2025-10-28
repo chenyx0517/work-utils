@@ -12,16 +12,14 @@ import re
 import time
 import json
 import hashlib
+import tempfile
 from fontTools import subset
 from fontTools.ttLib import TTFont
 import argparse
 from typing import List, Tuple, Iterable, Dict, Optional
 from datetime import datetime
 
-# CDN配置 - 根据公司实际情况修改
-CDN_CONFIG = {
-    'base_url': 'https://your-company-cdn.com/fonts',  # 替换为实际的CDN地址
-}
+# CDN配置已集成到upload_file_to_cdn函数中
 
 # 语言到unicode文件的映射
 LANGUAGE_UNICODE_MAP = {
@@ -295,45 +293,156 @@ def codepoints_to_unicode_ranges(codepoints: List[int]) -> List[str]:
         ranges.append(f"U+{start:x}-{prev:x}")
     return ranges
 
-# Mock CDN上传接口 - 后续替换为实际OSS接口
-def mock_upload_to_cdn(font_file_path: str, cdn_base_url: str, language: str) -> str:
-    """
-    Mock CDN上传接口
-    实际使用时替换为公司的OSS上传接口
-    
-    参数:
-    - font_file_path: 本地字体文件路径
-    - cdn_base_url: CDN基础URL
-    - language: 语言标识
-    
-    返回:
-    - CDN URL
-    """
-    # 生成文件名hash，避免重名
-    with open(font_file_path, 'rb') as f:
-        file_hash = hashlib.md5(f.read()).hexdigest()[:8]
-    
-    filename = os.path.basename(font_file_path)
-    name, ext = os.path.splitext(filename)
-    cdn_filename = f"{name}_{file_hash}{ext}"
-    
-    # Mock CDN URL
-    cdn_url = f"{cdn_base_url}/{language}/{cdn_filename}"
-    
-    print(f"  📤 Mock上传: {font_file_path} -> {cdn_url}")
-    
-    # 这里应该调用实际的OSS上传接口
-    # 例如: upload_result = oss_client.upload_file(font_file_path, cdn_filename)
-    
-    return cdn_url
+def upload_font_data_to_cdn(font_data: bytes, filename: str, language: str) -> str:
+    """上传字体数据到CDN"""
+    try:
+        import requests
+        import hashlib
+        import oss2 
+        
+        # 生成文件名hash，避免重名
+        file_hash = hashlib.md5(font_data).hexdigest()[:8]
+        name, ext = os.path.splitext(filename)
+        cdn_filename = f"{name}_{file_hash}{ext}"
+        
+        print(f"🔍 开始上传字体数据:")
+        print(f"  - 文件名: {cdn_filename}")
+        print(f"  - 语言: {language}")
+        print(f"  - 数据大小: {len(font_data)} bytes")
+        
+        # API 基础地址
+        base_url = "https://awe-test.diezhi.net/v2/resources"
+        
+        # 接口不需要认证信息
+        headers = {
+            "Content-Type": "application/json",
+        }
+        
+        print(f"✅ 接口无需认证，开始上传流程")
+        
+        # 计算文件信息
+        file_size = len(font_data)
+        file_hash = hashlib.md5(font_data).hexdigest()
+        file_ext = os.path.splitext(cdn_filename)[1][1:]  # 去掉点号
+        
+        print(f"🔍 文件信息: {cdn_filename}, 大小: {file_size} bytes, 哈希: {file_hash}")
+        
+        # ===== 第一步：获取STS临时凭证 =====
+        sts_url = f"{base_url}/sts/get"
+        sts_data = {
+            "client_id": 1065,  # 修改为数字类型
+            "path": "activity",   
+            "file_type": file_ext, # 添加文件类型
+            "file_md5": file_hash,
+            "operate_id": "web_fontmin_utils",  
+        }
+        
+        print(f"🔍 第一步：获取STS凭证")
+        print(f"🔍 STS URL: {sts_url}")
+        print(f"🔍 STS 参数: {sts_data}")
+        
+        sts_response = requests.post(sts_url, headers=headers, json=sts_data, timeout=30)
+        
+        print(f"🔍 STS 响应状态码: {sts_response.status_code}")
+        print(f"🔍 STS 响应内容: {sts_response.text}")
+        
+        if sts_response.status_code != 200:
+            raise Exception(f"获取STS凭证失败: {sts_response.status_code} - {sts_response.text}")
+        
+        sts_result = sts_response.json()
+        
+        # 检查STS响应格式
+        if sts_result.get('code') != 0: # 修正检查成功状态
+            raise Exception(f"STS请求失败: {sts_result}")
+        
+        # 提取OSS信息
+        oss_data = sts_result.get('data', {})
+        bucket = oss_data.get('bucket')
+        region = oss_data.get('region')
+        access_key_id = oss_data.get('ak_id')  # 修正字段名
+        access_key_secret = oss_data.get('ak_secret')  # 修正字段名
+        security_token = oss_data.get('sts_token')  # 修正字段名
+        upload_path = oss_data.get('bucket_path')  # 使用bucket_path作为上传路径
+        resource_id = oss_data.get('resource_id')
+        
+        if not all([bucket, region, access_key_id, access_key_secret, security_token, upload_path, resource_id]):
+            raise Exception(f"STS响应缺少必要信息: {oss_data}")
+        
+        print(f"✅ 获取STS凭证成功")
+        print(f"🔍 OSS信息: bucket={bucket}, region={region}, upload_path={upload_path}")
+        
+        # ===== 第二步：上传文件到OSS =====
+        # 创建OSS客户端
+        auth = oss2.StsAuth(access_key_id, access_key_secret, security_token)
+        # 修正OSS域名格式
+        oss_endpoint = f"https://{region}.aliyuncs.com"
+        bucket_obj = oss2.Bucket(auth, oss_endpoint, bucket)
+        
+        # 上传文件
+        print(f"🔍 第二步：上传文件到OSS")
+        print(f"🔍 上传路径: {upload_path}")
+        
+        result = bucket_obj.put_object(upload_path, font_data)
+        
+        if result.status == 200:
+            # 构建CDN URL - 使用bucket_domain
+            bucket_domain = oss_data.get('bucket_domain', f"{bucket}.oss-{region}.aliyuncs.com")
+            cdn_url = f"https://{bucket_domain}/{upload_path}"
+            print(f"✅ OSS上传成功: {cdn_url}")
+            return cdn_url
+        else:
+            raise Exception(f"OSS上传失败: {result}")
+            
+    except ImportError:
+        print("⚠️ oss2库未安装，无法直接上传到OSS")
+        print("💡 请运行: pip install oss2")
+        raise Exception("需要安装oss2库")
+            
+    except ImportError:
+        print("⚠️ requests库未安装，无法使用Python后端上传")
+        print("💡 请运行: pip install requests")
+        raise Exception("需要安装requests库")
+    except Exception as e:
+        print(f"❌ Python后端上传失败: {e}")
+        raise
 
-def generate_css_file(subset_info_list: List[Dict], cdn_base_url: str, font_family: str, output_css_path: str) -> bool:
+def upload_file_to_cdn(font_file_path: str, language: str) -> str:
+    """
+    上传字体文件到CDN
+    """
+    try:
+        # 读取文件数据
+        with open(font_file_path, 'rb') as f:
+            font_data = f.read()
+        
+        filename = os.path.basename(font_file_path)
+        
+        # 使用本地的上传函数
+        cdn_url = upload_font_data_to_cdn(font_data, filename, language)
+        
+        print(f"✅ 上传成功: {cdn_url}")
+        return cdn_url
+        
+    except Exception as e:
+        print(f"❌ 上传失败: {e}")
+        print("🔄 使用fallback机制...")
+        
+        # 生成fallback URL
+        filename = os.path.basename(font_file_path)
+        name, ext = os.path.splitext(filename)
+        file_hash = hashlib.md5(open(font_file_path, 'rb').read()).hexdigest()[:8]
+        fallback_filename = f"{name}_{file_hash}{ext}"
+        fallback_url = f"https://awe-test.diezhi.net/fallback/{language}/{fallback_filename}"
+        
+        print(f"📤 Fallback URL: {fallback_url}")
+        return fallback_url
+
+def generate_css_file(subset_info_list: List[Dict], font_family: str, output_css_path: str) -> bool:
     """
     生成包含CDN地址的CSS文件
     
     参数:
     - subset_info_list: 子集信息列表
-    - cdn_base_url: CDN基础URL
     - font_family: 字体族名称
     - output_css_path: 输出CSS文件路径
     
@@ -347,7 +456,7 @@ def generate_css_file(subset_info_list: List[Dict], cdn_base_url: str, font_fami
         header = f"""/* 
  * 字体CSS文件 - {font_family}
  * 生成时间: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
- * CDN基础地址: {cdn_base_url}
+ * CDN地址: 已集成到各子集URL中
  * 包含 {len(subset_info_list)} 个字体子集
  */
 
@@ -438,34 +547,43 @@ def split_font(input_font_path: str, output_folder: str, num_chunks: int = 200, 
         
         for i, chunk in enumerate(char_chunks, 1):
             output_filename = f"{base_name}_subset_{i:03d}{file_ext}"
-            output_path = os.path.join(output_folder, output_filename)
             
             print(f"创建子集 {i}/{len(char_chunks)}: {output_filename} (包含 {len(chunk)} 个字符)")
             
-            if create_font_subset(input_font_path, output_path, chunk):
-                success_count += 1
-                
-                # 计算unicode-range
-                cps = [ord(c) for c in chunk]
-                ranges = codepoints_to_unicode_ranges(cps)
-                unicode_ranges = ",".join(ranges)
-                
-                # 上传到CDN并获取CDN URL
-                cdn_url = mock_upload_to_cdn(output_path, CDN_CONFIG['base_url'], language)
-                
-                # 收集子集信息
-                subset_info = {
-                    'subset_num': i,
-                    'char_count': len(chunk),
-                    'characters': ''.join(chunk),
-                    'unicode_ranges': unicode_ranges,
-                    'local_path': output_path,
-                    'cdn_url': cdn_url,
-                    'language': language
-                }
-                subset_info_list.append(subset_info)
-            else:
-                print(f"警告: 创建子集 {i} 失败")
+            # 创建临时文件用于子集字体
+            temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=file_ext)
+            temp_path = temp_file.name
+            temp_file.close()
+            
+            try:
+                if create_font_subset(input_font_path, temp_path, chunk):
+                    success_count += 1
+                    
+                    # 计算unicode-range
+                    cps = [ord(c) for c in chunk]
+                    ranges = codepoints_to_unicode_ranges(cps)
+                    unicode_ranges = ",".join(ranges)
+                    
+                    # 上传临时文件到CDN并获取CDN URL
+                    cdn_url = upload_file_to_cdn(temp_path, language)
+                    
+                    # 收集子集信息
+                    subset_info = {
+                        'subset_num': i,
+                        'char_count': len(chunk),
+                        'characters': ''.join(chunk),
+                        'unicode_ranges': unicode_ranges,
+                        'local_path': None,  # 不再保存本地文件
+                        'cdn_url': cdn_url,
+                        'language': language
+                    }
+                    subset_info_list.append(subset_info)
+                else:
+                    print(f"警告: 创建子集 {i} 失败")
+            finally:
+                # 删除临时文件
+                if os.path.exists(temp_path):
+                    os.unlink(temp_path)
         
         print(f"\n拆分完成! 成功创建 {success_count}/{len(char_chunks)} 个子集字体")
         
@@ -490,7 +608,7 @@ def split_font(input_font_path: str, output_folder: str, num_chunks: int = 200, 
             css_filename = f"{base_name}_{language}.css"
             css_path = os.path.join(output_folder, css_filename)
             
-            if generate_css_file(subset_info_list, CDN_CONFIG['base_url'], font_family, css_path):
+            if generate_css_file(subset_info_list, font_family, css_path):
                 print(f"🎉 CSS文件已生成: {css_path}")
                 print(f"💡 使用方法: 在HTML中引入此CSS文件，然后设置 font-family: '{font_family}'")
             else:
@@ -585,7 +703,6 @@ def main():
         print(f"拆分数量: {args.num_chunks}")
     
     # CDN配置信息
-    print(f"CDN基础地址: {CDN_CONFIG['base_url']}")
     print("📤 将自动上传字体文件到CDN并生成CSS")
     
     print("-" * 50)
