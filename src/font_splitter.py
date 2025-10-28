@@ -295,6 +295,69 @@ def codepoints_to_unicode_ranges(codepoints: List[int]) -> List[str]:
 
 # 删除了对字体文件追加 ?x-oss-process 的压缩参数逻辑
 
+def convert_font_to_multiple_formats(font_data: bytes, base_filename: str) -> Dict[str, bytes]:
+    """将字体数据转换为多种格式"""
+    formats = {}
+    
+    # TTF (原始格式)
+    formats['ttf'] = font_data
+    
+    try:
+        from fontTools.ttLib import TTFont
+        import io
+        
+        # 加载字体到TTFont进行转换
+        ttf_buffer = io.BytesIO(font_data)
+        font = TTFont(ttf_buffer)
+        
+        # WOFF2
+        try:
+            font.flavor = 'woff2'
+            woff2_buffer = io.BytesIO()
+            font.save(woff2_buffer)
+            formats['woff2'] = woff2_buffer.getvalue()
+            woff2_buffer.close()
+        except Exception as e:
+            print(f"⚠️ WOFF2转换失败: {e}")
+        
+        # WOFF
+        try:
+            font.flavor = 'woff'
+            woff_buffer = io.BytesIO()
+            font.save(woff_buffer)
+            formats['woff'] = woff_buffer.getvalue()
+            woff_buffer.close()
+        except Exception as e:
+            print(f"⚠️ WOFF转换失败: {e}")
+        
+        # EOT (需要特殊处理，暂时跳过)
+        # EOT格式需要额外的工具或库，暂时不实现
+        
+        ttf_buffer.close()
+        
+    except Exception as e:
+        print(f"⚠️ 字体格式转换失败: {e}")
+    
+    return formats
+
+def upload_multiple_formats_to_cdn(font_data: bytes, base_filename: str, language: str, on_progress=None) -> Dict[str, str]:
+    """上传多种格式到CDN，返回格式到URL的映射"""
+    formats = convert_font_to_multiple_formats(font_data, base_filename)
+    cdn_urls = {}
+    
+    print(f"🔍 开始转换和上传 {len(formats)} 种格式")
+    
+    for format_name, format_data in formats.items():
+        if format_data:  # 只上传成功转换的格式
+            filename = f"{base_filename}.{format_name}"
+            try:
+                cdn_url = upload_font_data_to_cdn(format_data, filename, language, on_progress)
+                cdn_urls[format_name] = cdn_url
+                print(f"✅ {format_name.upper()} 上传成功")
+            except Exception as e:
+                print(f"❌ {format_name.upper()} 上传失败: {e}")
+    
+    return cdn_urls
 
 def upload_font_data_to_cdn(font_data: bytes, filename: str, language: str, on_progress=None) -> str:
     """上传字体数据到CDN"""
@@ -476,15 +539,31 @@ def generate_css_file(subset_info_list: List[Dict], font_family: str, output_css
         for subset_info in subset_info_list:
             subset_num = subset_info['subset_num']
             unicode_ranges = subset_info['unicode_ranges']
-            cdn_url = subset_info['cdn_url']
+            cdn_urls = subset_info.get('cdn_urls', {})  # 现在是格式到URL的映射
             language = subset_info.get('language', 'unknown')
+            
+            # 按优先级排序生成src属性
+            format_order = ['woff2', 'woff', 'ttf', 'eot']
+            src_parts = []
+            
+            for format_name in format_order:
+                if format_name in cdn_urls:
+                    format_type = {
+                        'woff2': 'woff2',
+                        'woff': 'woff', 
+                        'ttf': 'truetype',
+                        'eot': 'embedded-opentype'
+                    }[format_name]
+                    src_parts.append(f'url("{cdn_urls[format_name]}") format("{format_type}")')
+            
+            src = ','.join(src_parts)
             
             # 生成@font-face规则
             font_face = f"""@font-face {{
   font-family: {font_family};
   font-weight: 400;
   font-display: swap;
-  src: url("{cdn_url}");
+  src: {src};
   unicode-range: {unicode_ranges};
 }}"""
             
@@ -575,8 +654,15 @@ def split_font(input_font_path: str, output_folder: str, num_chunks: int = 200, 
                     ranges = codepoints_to_unicode_ranges(cps)
                     unicode_ranges = ",".join(ranges)
                     
-                    # 上传临时文件到CDN并获取CDN URL
-                    cdn_url = upload_file_to_cdn(temp_path, language)
+                    # 读取子集字体数据
+                    with open(temp_path, 'rb') as f:
+                        subset_font_data = f.read()
+                    
+                    # 生成基础文件名（不包含扩展名）
+                    base_filename = f"{base_name}_subset_{i:03d}"
+                    
+                    # 上传多种格式到CDN
+                    cdn_urls = upload_multiple_formats_to_cdn(subset_font_data, base_filename, language)
                     
                     # 收集子集信息
                     subset_info = {
@@ -585,7 +671,7 @@ def split_font(input_font_path: str, output_folder: str, num_chunks: int = 200, 
                         'characters': ''.join(chunk),
                         'unicode_ranges': unicode_ranges,
                         'local_path': None,  # 不再保存本地文件
-                        'cdn_url': cdn_url,
+                        'cdn_urls': cdn_urls,  # 现在是格式到URL的映射
                         'language': language
                     }
                     subset_info_list.append(subset_info)
@@ -608,8 +694,14 @@ def split_font(input_font_path: str, output_folder: str, num_chunks: int = 200, 
                 f.write(f"子集 {subset_info['subset_num']:03d} ({subset_info['char_count']} 个字符):\n")
                 f.write(f"字符: {subset_info['characters']}\n")
                 f.write("unicode-range: " + subset_info['unicode_ranges'] + ";\n")
-                if subset_info['cdn_url']:
-                    f.write(f"CDN地址: {subset_info['cdn_url']}\n")
+                
+                # 显示所有格式的CDN地址
+                cdn_urls = subset_info.get('cdn_urls', {})
+                if cdn_urls:
+                    f.write("CDN地址:\n")
+                    for format_name, url in cdn_urls.items():
+                        f.write(f"  {format_name.upper()}: {url}\n")
+                
                 f.write("-" * 30 + "\n")
         
         print(f"字符映射文件已保存: {mapping_file}")
@@ -630,6 +722,9 @@ def split_font(input_font_path: str, output_folder: str, num_chunks: int = 200, 
     except Exception as e:
         print(f"拆分字体时出错: {e}")
         return False
+
+
+
 
 def main():
     parser = argparse.ArgumentParser(description='字体拆分工具 - 按语言自动选择unicode顺序拆分成多个子集并生成CDN CSS')
