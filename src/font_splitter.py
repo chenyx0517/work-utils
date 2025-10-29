@@ -377,7 +377,7 @@ def upload_font_data_to_cdn(font_data: bytes, filename: str, language: str, on_p
         print(f"  - 数据大小: {len(font_data)} bytes")
         
         # API 基础地址
-        base_url = "https://awe-test.diezhi.net/v2/resources"
+        base_url = "https://awe.diezhi.net/v2/resources"
         
         # 接口不需要认证信息
         headers = {
@@ -556,6 +556,11 @@ def generate_css_file(subset_info_list: List[Dict], font_family: str, output_css
                     }[format_name]
                     src_parts.append(f'url("{cdn_urls[format_name]}") format("{format_type}")')
             
+            if not src_parts:
+                # 无可用URL则跳过该@font-face，避免生成空src
+                print(f"警告: 子集 {subset_num} 无可用CDN链接，跳过 @font-face")
+                continue
+
             src = ','.join(src_parts)
             
             # 生成@font-face规则
@@ -647,8 +652,6 @@ def split_font(input_font_path: str, output_folder: str, num_chunks: int = 200, 
             
             try:
                 if create_font_subset(input_font_path, temp_path, chunk):
-                    success_count += 1
-                    
                     # 计算unicode-range
                     cps = [ord(c) for c in chunk]
                     ranges = codepoints_to_unicode_ranges(cps)
@@ -664,7 +667,12 @@ def split_font(input_font_path: str, output_folder: str, num_chunks: int = 200, 
                     # 上传多种格式到CDN
                     cdn_urls = upload_multiple_formats_to_cdn(subset_font_data, base_filename, language)
                     
-                    # 收集子集信息
+                    if not cdn_urls:
+                        print(f"警告: 子集 {i} 的CDN上传均失败，跳过该子集的CSS生成")
+                        continue  # 不计数、不生成CSS
+                    
+                    # 仅在上传成功时计数与收集
+                    success_count += 1
                     subset_info = {
                         'subset_num': i,
                         'char_count': len(chunk),
@@ -683,28 +691,7 @@ def split_font(input_font_path: str, output_folder: str, num_chunks: int = 200, 
                     os.unlink(temp_path)
         
         print(f"\n拆分完成! 成功创建 {success_count}/{len(char_chunks)} 个子集字体")
-        
-        # 生成字符映射文件
-        mapping_file = os.path.join(output_folder, f"{base_name}_character_mapping.txt")
-        with open(mapping_file, 'w', encoding='utf-8') as f:
-            f.write(f"字体拆分字符映射 - {base_name}\n")
-            f.write("=" * 50 + "\n\n")
-            
-            for subset_info in subset_info_list:
-                f.write(f"子集 {subset_info['subset_num']:03d} ({subset_info['char_count']} 个字符):\n")
-                f.write(f"字符: {subset_info['characters']}\n")
-                f.write("unicode-range: " + subset_info['unicode_ranges'] + ";\n")
-                
-                # 显示所有格式的CDN地址
-                cdn_urls = subset_info.get('cdn_urls', {})
-                if cdn_urls:
-                    f.write("CDN地址:\n")
-                    for format_name, url in cdn_urls.items():
-                        f.write(f"  {format_name.upper()}: {url}\n")
-                
-                f.write("-" * 30 + "\n")
-        
-        print(f"字符映射文件已保存: {mapping_file}")
+        # 不再生成字符映射文件，仅输出CSS
         
         # 生成CSS文件
         if subset_info_list:

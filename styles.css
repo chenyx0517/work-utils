@@ -1327,3 +1327,87 @@ textarea:focus {
 .output-folder-section button:hover {
 	background-color: #0056b3;
 }
+
+/* 成功提示样式 */
+.success-details {
+	padding: 15px;
+	background: linear-gradient(135deg, #e8f5e8, #f0f8f0);
+	border-radius: 8px;
+	border-left: 4px solid #28a745;
+}
+
+.success-badges {
+	display: flex;
+	gap: 8px;
+	margin-bottom: 12px;
+	flex-wrap: wrap;
+}
+
+.success-badges .badge {
+	padding: 4px 8px;
+	border-radius: 12px;
+	font-size: 12px;
+	font-weight: 500;
+}
+
+.success-badges .badge.success {
+	background-color: #d4edda;
+	color: #155724;
+	border: 1px solid #c3e6cb;
+}
+
+.success-badges .badge.info {
+	background-color: #d1ecf1;
+	color: #0c5460;
+	border: 1px solid #bee5eb;
+}
+
+.success-badges .badge.time {
+	background-color: #fff3cd;
+	color: #856404;
+	border: 1px solid #ffeaa7;
+}
+
+.success-info {
+	margin-bottom: 12px;
+}
+
+.success-info p {
+	margin: 4px 0;
+	font-size: 14px;
+	color: #333;
+}
+
+.success-actions {
+	display: flex;
+	gap: 8px;
+}
+
+.mini-button {
+	padding: 6px 12px;
+	background-color: #007bff;
+	color: white;
+	border: none;
+	border-radius: 4px;
+	font-size: 12px;
+	cursor: pointer;
+	transition: background-color 0.2s;
+}
+
+.mini-button:hover {
+	background-color: #0056b3;
+}
+
+.time-info {
+	display: flex;
+	gap: 15px;
+	flex-wrap: wrap;
+	font-size: 12px;
+	color: #666;
+}
+
+.time-info span {
+	display: flex;
+	align-items: center;
+	gap: 4px;
+}

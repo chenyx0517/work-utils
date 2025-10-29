@@ -276,6 +276,13 @@ class Api:
 
     def split_font_and_generate_css_with_file(self, file_data, filename, font_family, language, num_chunks, output_folder=None):
         """使用文件数据拆分字体并生成CSS"""
+        print(f"🔍 [DEBUG] 开始拆分字体: {filename}")
+        print(f"🔍 [DEBUG] 语言: {language}")
+        print(f"🔍 [DEBUG] 字体族: {font_family}")
+        print(f"🔍 [DEBUG] 拆分数量: {num_chunks}")
+        print(f"🔍 [DEBUG] 当前工作目录: {os.getcwd()}")
+        print(f"🔍 [DEBUG] 脚本目录: {os.path.dirname(__file__)}")
+        
         if self.is_processing:
             return {"success": False, "message": "⚠️ 正在处理其他任务，请稍后再试"}
         
@@ -290,15 +297,18 @@ class Api:
             
             # 解码base64
             file_bytes = base64.b64decode(file_data)
+            print(f"🔍 [DEBUG] 文件数据大小: {len(file_bytes)} bytes")
             
             # 创建临时文件
             import tempfile
             temp_dir = tempfile.mkdtemp()
             temp_file_path = os.path.join(temp_dir, filename)
+            print(f"🔍 [DEBUG] 临时文件路径: {temp_file_path}")
             
             # 写入临时文件
             with open(temp_file_path, 'wb') as f:
                 f.write(file_bytes)
+            print(f"🔍 [DEBUG] 临时文件写入成功")
             
             # 验证文件格式
             if not filename.lower().endswith(('.ttf', '.otf', '.woff', '.woff2')):
@@ -311,13 +321,16 @@ class Api:
                     output_folder = desktop_path
                 else:
                     output_folder = os.getcwd()
+            print(f"🔍 [DEBUG] 输出目录: {output_folder}")
             
             self.is_processing = True
             self.current_task = f"拆分字体 {filename}"
             
             try:
                 # 导入拆分模块
+                print(f"🔍 [DEBUG] 开始导入 font_splitter 模块")
                 from font_splitter import split_font
+                print(f"🔍 [DEBUG] font_splitter 模块导入成功")
                 
                 # 根据语言选择unicode文件
                 language_unicode_map = {
@@ -327,6 +340,7 @@ class Api:
                 }
                 
                 unicode_file = language_unicode_map.get(language, 'unicode-zh-CN.txt')
+                print(f"🔍 [DEBUG] 查找unicode文件: {unicode_file}")
                 
                 # 尝试多个可能的路径
                 possible_paths = [
@@ -355,19 +369,27 @@ class Api:
                 ]
                 
                 unicode_path = None
-                for path in possible_paths:
-                    if os.path.exists(path):
+                print(f"🔍 [DEBUG] 开始检查unicode文件路径:")
+                for i, path in enumerate(possible_paths):
+                    exists = os.path.exists(path)
+                    print(f"🔍 [DEBUG] 路径 {i+1}: {path} - {'存在' if exists else '不存在'}")
+                    if exists:
                         unicode_path = path
+                        print(f"✅ [DEBUG] 找到unicode文件: {path}")
                         break
                 
                 if not unicode_path:
+                    print(f"❌ [DEBUG] 所有路径都找不到unicode文件")
                     return {"success": False, "message": f"✗ 错误: 找不到语言文件 {unicode_file}，尝试的路径: {possible_paths}"}
                 
                 # 读取字符顺序
+                print(f"🔍 [DEBUG] 开始读取字符顺序文件")
                 from font_splitter import parse_unicode_order_file
                 preferred_order = parse_unicode_order_file(unicode_path)
+                print(f"🔍 [DEBUG] 字符顺序文件读取完成，字符数量: {len(preferred_order)}")
                 
                 # 执行拆分
+                print(f"🔍 [DEBUG] 开始调用 split_font 函数")
                 success = split_font(
                     temp_file_path,
                     output_folder,
@@ -376,12 +398,14 @@ class Api:
                     font_family=font_family,
                     language=language
                 )
+                print(f"🔍 [DEBUG] split_font 返回结果: {success}")
                 
                 if success:
                     # 查找生成的CSS文件
                     base_name = os.path.splitext(filename)[0]
                     css_filename = f"{base_name}_{language}.css"
                     css_path = os.path.join(output_folder, css_filename)
+                    print(f"🔍 [DEBUG] CSS文件路径: {css_path}")
                     
                     # 计算子集数量（简单估算）
                     subset_count = min(num_chunks, 200)  # 实际应该从split_font函数返回
@@ -393,15 +417,22 @@ class Api:
                         "css_path": css_path
                     }
                 else:
+                    print(f"❌ [DEBUG] split_font 返回失败")
                     return {"success": False, "message": "✗ 字体拆分失败"}
                     
             except Exception as e:
+                print(f"❌ [DEBUG] 拆分过程中发生错误: {str(e)}")
+                import traceback
+                print(f"❌ [DEBUG] 详细错误信息: {traceback.format_exc()}")
                 return {"success": False, "message": f"✗ 拆分过程中发生错误: {str(e)}"}
             finally:
                 self.is_processing = False
                 self.current_task = None
                 
         except Exception as e:
+            print(f"❌ [DEBUG] 文件处理失败: {str(e)}")
+            import traceback
+            print(f"❌ [DEBUG] 详细错误信息: {traceback.format_exc()}")
             return {"success": False, "message": f"✗ 错误: 文件处理失败 - {str(e)}"}
         finally:
             # 清理临时文件
@@ -409,7 +440,9 @@ class Api:
                 if 'temp_file_path' in locals():
                     os.remove(temp_file_path)
                     os.rmdir(temp_dir)
-            except:
+                    print(f"🔍 [DEBUG] 临时文件清理完成")
+            except Exception as e:
+                print(f"⚠️ [DEBUG] 临时文件清理失败: {e}")
                 pass
 
     def cancel_processing(self):
@@ -721,25 +754,16 @@ def get_resource_path(relative_path):
         return os.path.join(project_root, relative_path)
 
 def main():
-    """主函数"""
     print("🚀 正在启动字体转换工具...")
-    
-    # 获取HTML文件路径
-    html_file_path = get_resource_path('index.html')
 
+    html_file_path = get_resource_path('index.html')
     if not os.path.exists(html_file_path):
-        print(f"❌ 错误: 找不到HTML文件在 {html_file_path}")
-        print(f"当前工作目录: {os.getcwd()}")
-        print(f"Python可执行文件: {sys.executable}")
-        if getattr(sys, 'frozen', False):
-            print(f"打包临时目录: {sys._MEIPASS}")
+        print(f"❌ 找不到HTML文件: {html_file_path}")
         sys.exit(1)
 
-    # 延迟导入WebView
     webview = lazy_import_webview()
-    
-    # 创建API和窗口
     api = Api()
+
     window = webview.create_window(
         'FontTool',
         url=f'file://{html_file_path}',
@@ -748,13 +772,21 @@ def main():
         height=700,
         min_size=(800, 600),
         resizable=True,
-        shadow=True,
-        on_top=False
+        background_color='#fafafa',
+        confirm_close=True,
+        hidden=True,
+        easy_drag=True,
     )
+
     api.window = window
-    
-    print("✅ 应用启动完成")
-    webview.start()
+
+    def on_loaded():
+        window.show()
+        print("✅ 页面加载完成，窗口已显示")
+
+    webview.start(on_loaded)
+
+
 
 if __name__ == '__main__':
     main()

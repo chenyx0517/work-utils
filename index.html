@@ -90,74 +90,178 @@
 			}
 			
 			// 开始拆分处理
-			function startSplitProcess() {
-				console.log('开始拆分字体...');
-				console.log('当前全局变量状态:', {
-					splitFileData: window.splitFileData,
-					splitInputFile: window.splitInputFile,
-					selectedLanguage: window.selectedLanguage
-				});
-				
-				const fontFamily = document.getElementById('font-family').value.trim();
-				const numChunks = parseInt(document.getElementById('num-chunks').value);
+		function startSplitProcess() {
+			console.log('开始拆分字体...');
+			
+			const fontFamily = document.getElementById('font-family').value.trim();
+			const numChunks = parseInt(document.getElementById('num-chunks').value);
 
-				console.log('参数检查:', {
-					splitInputFile: window.splitInputFile,
-					fontFamily,
-					selectedLanguage: window.selectedLanguage,
-					numChunks
-				});
-
-				if (!window.splitInputFile) {
-					alert('请先选择字体文件');
-					return;
-				}
-
-				if (!fontFamily) {
-					alert('请输入字体名称');
-					return;
-				}
-
-				if (!window.selectedLanguage) {
-					alert('请选择语言类型');
-					return;
-				}
-
-				// 禁用按钮
-				document.getElementById('split-button').disabled = true;
-				alert('开始拆分字体...');
-
-				// 调用Python API
-				if (window.splitFileData) {
-					// 使用文件数据
-					fileToBase64(window.splitFileData).then(fileData => {
-						return pywebview.api.split_font_and_generate_css_with_file(
-							fileData,
-							window.splitFileData.name,
-							fontFamily,
-							window.selectedLanguage,
-							numChunks,
-							window.splitOutputFolder || null
-						);
-					}).then(result => {
-						console.log('拆分完成，返回结果:', result);
-						document.getElementById('split-button').disabled = false;
-						
-						if (result && result.success) {
-							alert(`拆分完成！生成了 ${result.subset_count} 个子集文件`);
-						} else {
-							alert('拆分失败: ' + (result.message || '未知错误'));
-						}
-					}).catch(error => {
-						console.error('拆分过程中出错:', error);
-						document.getElementById('split-button').disabled = false;
-						alert('拆分过程中出错: ' + error.message);
-					});
-				} else {
-					alert('文件数据丢失，请重新选择文件');
-					document.getElementById('split-button').disabled = false;
-				}
+			// 参数验证
+			if (!window.splitInputFile) {
+				updateResult('请先选择字体文件', 'error');
+				return;
 			}
+
+			if (!fontFamily) {
+				updateResult('请输入字体名称', 'error');
+				return;
+			}
+
+			if (!window.selectedLanguage) {
+				updateResult('请选择语言类型', 'error');
+				return;
+			}
+
+			// 禁用按钮并显示进度
+			const splitButton = document.getElementById('split-button');
+			splitButton.disabled = true;
+			splitButton.textContent = '拆分中...';
+			
+			// 开始时间记录
+			const startTime = Date.now();
+			let progressInterval = null;
+			
+			// 显示进度状态
+			showTaskStatus('字体拆分', '正在分析字体文件...', true);
+			updateResult('开始拆分字体，请稍候...', 'info');
+
+			// 进度轮询函数
+			function updateProgress() {
+				const elapsed = Math.floor((Date.now() - startTime) / 1000);
+				const minutes = Math.floor(elapsed / 60);
+				const seconds = elapsed % 60;
+				
+				// 根据已用时间估算剩余时间（经验值）
+				let estimatedTotal = 30; // 默认30秒
+				if (numChunks > 5) estimatedTotal = 45;
+				if (numChunks > 10) estimatedTotal = 60;
+				
+				const remaining = Math.max(0, estimatedTotal - elapsed);
+				const remainingMinutes = Math.floor(remaining / 60);
+				const remainingSeconds = remaining % 60;
+				
+				const timeInfo = `
+					<div class="time-info">
+						<span>⏱️ 已用: ${minutes > 0 ? minutes + '分' : ''}${seconds}秒</span>
+						<span>⏳ 预计剩余: ${remainingMinutes > 0 ? remainingMinutes + '分' : ''}${remainingSeconds}秒</span>
+						<span>📊 处理中...</span>
+					</div>
+				`;
+				
+				showTaskStatus('字体拆分进行中', timeInfo, true);
+			}
+
+			// 开始进度轮询
+			progressInterval = setInterval(updateProgress, 1000);
+
+			// 调用Python API
+			if (window.splitFileData) {
+				fileToBase64(window.splitFileData).then(fileData => {
+					return pywebview.api.split_font_and_generate_css_with_file(
+						fileData,
+						window.splitFileData.name,
+						fontFamily,
+						window.selectedLanguage,
+						numChunks,
+						window.splitOutputFolder || null
+					);
+				}).then(result => {
+					console.log('拆分完成，返回结果:', result);
+					
+					// 停止进度轮询
+					if (progressInterval) {
+						clearInterval(progressInterval);
+						progressInterval = null;
+					}
+					
+					// 恢复按钮
+					splitButton.disabled = false;
+					splitButton.textContent = '开始拆分和上传';
+					
+					// 计算实际用时
+					const totalTime = Math.floor((Date.now() - startTime) / 1000);
+					const minutes = Math.floor(totalTime / 60);
+					const seconds = totalTime % 60;
+					const timeStr = minutes > 0 ? `${minutes}分${seconds}秒` : `${seconds}秒`;
+					
+					if (result && result.success) {
+						// 显示详细的成功信息
+						const successDetail = `
+							<div class="success-details">
+								<div class="success-badges">
+									<span class="badge success">🎉 拆分完成</span>
+									<span class="badge info">📦 ${result.subset_count} 个子集</span>
+									<span class="badge time">⏱️ 用时 ${timeStr}</span>
+								</div>
+								<div class="success-info">
+									<p>✅ 成功生成了 ${result.subset_count} 个子集字体文件</p>
+									<p>📄 CSS文件已生成并上传到CDN</p>
+									${result.css_path ? `<p>📁 文件路径: ${result.css_path}</p>` : ''}
+								</div>
+								<div class="success-actions">
+									<button class="mini-button" onclick="copyToClipboard('${result.css_path || ''}')">复制CSS路径</button>
+								</div>
+							</div>
+						`;
+						
+						showTaskStatus('拆分与上传完成', successDetail, false);
+						updateResult(`✅ 拆分完成！用时 ${timeStr}，生成了 ${result.subset_count} 个子集字体`, 'success');
+						
+						// 保持结果展示，直到用户手动关闭
+					} else {
+						hideTaskStatus();
+						updateResult('❌ 拆分失败: ' + (result.message || '未知错误'), 'error');
+					}
+				}).catch(error => {
+					console.error('拆分过程中出错:', error);
+					
+					// 停止进度轮询
+					if (progressInterval) {
+						clearInterval(progressInterval);
+						progressInterval = null;
+					}
+					
+					// 恢复按钮
+					splitButton.disabled = false;
+					splitButton.textContent = '开始拆分和上传';
+					
+					// 隐藏进度状态
+					hideTaskStatus();
+					
+					updateResult('❌ 拆分过程中出错: ' + error.message, 'error');
+				});
+			} else {
+				updateResult('❌ 文件数据丢失，请重新选择文件', 'error');
+				splitButton.disabled = false;
+				splitButton.textContent = '开始拆分和上传';
+			}
+		}
+		
+		// 复制到剪贴板函数
+		function copyToClipboard(text) {
+			if (navigator.clipboard && navigator.clipboard.writeText) {
+				navigator.clipboard.writeText(text).then(() => {
+					updateResult('📋 CSS路径已复制到剪贴板', 'success');
+				}).catch(err => {
+					console.error('复制失败:', err);
+					updateResult('❌ 复制失败，请手动复制', 'error');
+				});
+			} else {
+				// 降级方案
+				const textArea = document.createElement('textarea');
+				textArea.value = text;
+				document.body.appendChild(textArea);
+				textArea.select();
+				try {
+					document.execCommand('copy');
+					updateResult('📋 CSS路径已复制到剪贴板', 'success');
+				} catch (err) {
+					console.error('复制失败:', err);
+					updateResult('❌ 复制失败，请手动复制', 'error');
+				}
+				document.body.removeChild(textArea);
+			}
+		}
 		</script>
 	</head>
 
@@ -222,7 +326,7 @@
 				<div class="form-group">
 					<label for="split-output-folder">输出文件夹（可选）</label>
 					<div class="input-group">
-						<input type="text" id="split-output-folder" placeholder="留空则使用字体文件所在目录" readonly>
+						<input type="text" id="split-output-folder" placeholder="留空则输出到桌面" readonly>
 						<button class="button secondary" onclick="selectSplitOutputFolder()">选择文件夹</button>
 					</div>
 				</div>
@@ -398,23 +502,31 @@
 				// 显示推断的目录（简化显示）
 				const outputPathInput = document.getElementById('outputFolderPath');
 				if (outputPathInput) {
-					outputPathInput.value = '自动检测原文件目录...';
+					outputPathInput.value = '自动放到桌面上';
 					outputPathInput.title = '将尝试在桌面、下载、文档等目录中查找原文件，并输出到相同目录';
 				}
 			}
 			
 			// 拖拽处理函数
 			function handleDragOver(event) {
+				// 允许放置
 				event.preventDefault();
+				event.stopPropagation();
+				if (event.dataTransfer) {
+					event.dataTransfer.dropEffect = 'copy';
+				}
 				event.currentTarget.classList.add('drag-over');
 			}
 			
 			function handleDragLeave(event) {
+				event.stopPropagation();
 				event.currentTarget.classList.remove('drag-over');
 			}
 			
 			function handleDrop(event, targetType) {
+				// 阻止默认行为
 				event.preventDefault();
+				event.stopPropagation();
 				event.currentTarget.classList.remove('drag-over');
 				
 				const files = event.dataTransfer.files;
@@ -427,8 +539,32 @@
 						fileName.endsWith('.woff') || fileName.endsWith('.woff2')) {
 						
 						if (targetType === 'split-input-file') {
-							document.getElementById('split-input-file').value = file.path || file.name;
-							loadFontInfo(file.path || file.name, 'split-file-info');
+							// 支持拆分页拖拽：保存文件对象与名称，展示文件信息
+							window.splitFileData = file;
+							window.splitInputFile = file.name;
+							document.getElementById('split-input-file').value = file.name;
+							// 使用文件对象展示基础信息（名称、大小）
+							if (typeof loadFontInfoFromFile === 'function') {
+								loadFontInfoFromFile(file, 'split-file-info');
+							} else {
+								const infoEl = document.getElementById('split-file-info');
+								if (infoEl) {
+									infoEl.innerHTML = `
+										<div class="font-info">
+											<strong>${file.name}</strong><br>
+											文件大小: ${(file.size / 1024).toFixed(1)} KB
+										</div>
+									`;
+									infoEl.style.display = 'block';
+								}
+							}
+							// 启用“开始拆分”按钮
+							const splitBtn = document.getElementById('split-button');
+							if (splitBtn) splitBtn.disabled = false;
+							// 结果提示
+							if (typeof updateResult === 'function') {
+								updateResult('✅ 已选择拆分字体文件：' + file.name, 'success');
+							}
 						} else if (targetType === 'convert-input') {
 							selectedFileData = file;
 							inputFile = file.name;
@@ -477,15 +613,17 @@
 			
 			// 从文件对象加载字体信息
 			function loadFontInfoFromFile(file, infoElementId) {
-				const reader = new FileReader();
-				reader.onload = function(e) {
-					const arrayBuffer = e.target.result;
-					// 这里可以解析字体文件的基本信息
-					// 暂时显示文件基本信息
-					const infoEl = document.getElementById(infoElementId);
+				const infoEl = document.getElementById(infoElementId);
+				if (infoEl) {
+					// 显示文件基本信息
+					infoEl.innerHTML = `
+						<div class="font-info">
+							<strong>${file.name}</strong><br>
+							文件大小: ${(file.size / 1024).toFixed(1)} KB
+						</div>
+					`;
 					infoEl.style.display = 'block';
-				};
-				reader.readAsArrayBuffer(file);
+				}
 			}
 			
 			// 从文件对象获取字重信息
@@ -876,164 +1014,6 @@
 				});
 			}
 
-			function startSplitProcess() {
-				console.log('开始拆分字体...');
-				console.log('当前全局变量状态:', {
-					splitFileData: window.splitFileData,
-					splitInputFile: window.splitInputFile,
-					selectedLanguage: window.selectedLanguage
-				});
-				
-				const fontFamily = document.getElementById('font-family').value.trim();
-				const numChunks = parseInt(document.getElementById('num-chunks').value);
-
-				console.log('参数检查:', {
-					splitInputFile: window.splitInputFile,
-					fontFamily,
-					selectedLanguage: window.selectedLanguage,
-					numChunks
-				});
-
-				if (!window.splitInputFile) {
-					showSplitStatus('error', '请先选择字体文件');
-					return;
-				}
-
-				if (!fontFamily) {
-					showSplitStatus('error', '请输入字体名称');
-					return;
-				}
-
-				if (!window.selectedLanguage) {
-					showSplitStatus('error', '请选择语言类型');
-					return;
-				}
-
-				// 禁用按钮并初始化进度显示
-				document.getElementById('split-button').disabled = true;
-				showSplitStatus('info', '开始拆分字体...');
-				showSplitProgress(0);
-				showTaskStatus('正在拆分字体...', '请稍候', true);
-
-				// 开始进度轮询
-				let progressInterval = null;
-				
-				function startProgressPolling() {
-					progressInterval = setInterval(async () => {
-						try {
-							const progress = await pywebview.api.get_progress();
-							console.log('进度更新:', progress);
-							
-							if (progress.is_running) {
-								// 格式化时间信息
-								const timeInfo = `
-									<div class="time-info">
-										<span>⏱️ 已用: ${progress.elapsed_time}</span>
-										<span>⏳ 剩余: ${progress.remaining_time}</span>
-										<span>📊 ${progress.current}/${progress.total}</span>
-									</div>
-								`;
-								
-								// 更新任务状态
-								showTaskStatus(
-									progress.message,
-									timeInfo,
-									true
-								);
-								
-								// 更新进度条
-								updateTaskProgress(progress.percent);
-                            } else if (progress.step === 'completed') {
-                                // 完成时停止轮询并准备隐藏状态卡片
-                                clearInterval(progressInterval);
-                                progressInterval = null;
-                                setTimeout(() => hideTaskStatus(), 1000);
-                            }
-						} catch (error) {
-							console.error('获取进度失败:', error);
-						}
-					}, 500); // 每500ms轮询一次
-				}
-				
-				function stopProgressPolling() {
-					if (progressInterval) {
-						clearInterval(progressInterval);
-						progressInterval = null;
-					}
-				}
-
-				// 开始进度轮询
-				startProgressPolling();
-
-				// 调用Python API
-				if (window.splitFileData) {
-					// 使用文件数据
-					fileToBase64(window.splitFileData).then(fileData => {
-						return pywebview.api.split_font_and_generate_css_with_file(
-							fileData,
-							window.splitFileData.name,
-							fontFamily,
-							window.selectedLanguage,
-							numChunks,
-							window.splitOutputFolder || null
-						);
-					}).then(result => {
-					// 停止进度轮询
-					stopProgressPolling();
-					console.log('拆分完成，返回结果:', result);
-					document.getElementById('split-button').disabled = false;
-					
-                    if (result && result.success) {
-                        // 展示完成提示卡片，并在4秒后自动收起
-                        const successDetail = `
-                            <div class="status-badges">
-                                <span class="badge success">🎉 完成</span>
-                                <span class="badge info">📦 子集: ${result.subset_count}</span>
-                                <span class="badge path" title="点击复制">📃 CSS 路径</span>
-                            </div>
-                            <div style="margin-top:8px;font-size:12px;color:#595959;">${result.css_path}</div>
-                            <div class="task-actions" style="margin-top:10px;">
-                                <button class="mini-button" id="copyCssPathBtn">复制 CSS 路径</button>
-                            </div>
-                        `;
-                        showTaskStatus('拆分与上传完成', successDetail, false);
-                        // 复制按钮
-                        setTimeout(() => {
-                            const btn = document.getElementById('copyCssPathBtn');
-                            if (btn) {
-                                btn.onclick = () => {
-                                    navigator.clipboard.writeText(result.css_path).then(() => {
-                                        btn.textContent = '已复制';
-                                        setTimeout(() => (btn.textContent = '复制 CSS 路径'), 1500);
-                                    });
-                                };
-                            }
-                        }, 0);
-                        // 再保险：结果返回后也安排自动隐藏
-                        setTimeout(() => hideTaskStatus(), 4000);
-						
-						// 同时展示结果列表
-						showSplitResults([
-							`CSS文件: ${result.css_path}`,
-							`子集数量: ${result.subset_count}`,
-							`输出目录: ${result.output_folder}`
-						]);
-					} else {
-						console.error('任务失败或返回空结果:', result);
-						showSplitStatus('error', (result && result.message) ? result.message : '任务失败，返回结果为空');
-						hideSplitProgress();
-						// 失败时保留状态卡片，便于查看原因
-					}
-                }).catch(error => {
-					// 停止进度轮询
-					stopProgressPolling();
-					document.getElementById('split-button').disabled = false;
-					console.error('处理过程中发生错误:', error);
-					showSplitStatus('error', '处理过程中发生错误: ' + error);
-					hideSplitProgress();
-					// 错误时保留状态卡片
-				});
-			}
 
 			function showSplitStatus(type, message) {
 				// 使用任务状态显示消息
@@ -1084,13 +1064,6 @@
 			}
 
 
-			function showSplitResults(results) {
-				const resultsEl = document.getElementById('split-results');
-				resultsEl.innerHTML = results.map(result => 
-					`<div class="result-item">${result}</div>`
-				).join('');
-				resultsEl.style.display = 'block';
-			}
 
 			// 使用momo包的上传函数
 			async function uploadToCDN(filePath, filename, language) {
@@ -1151,12 +1124,5 @@
 			});
 		</script>
 	</body>
-	<script type="module">
-		// ===== CDN 上传解决方案 =====
-		// 直接使用 Python 后端上传，无需前端 fileUpload 函数
-		//
-		console.log('🔍 CDN 上传由 Python 后端直接处理');
-		console.log('💡 无需前端 fileUpload 函数，所有上传逻辑在 Python 后端');
-	</script>
 </html>
 
