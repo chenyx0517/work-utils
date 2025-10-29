@@ -11,6 +11,146 @@ import time
 from typing import List, Dict, Optional
 from datetime import datetime
 import io
+import tempfile
+import traceback
+
+def convert_ttf_to_woff2_core(input_ttf_path, output_woff2_path=None, subset_chars=None, weight_value=None):
+    """将 TTF/OTF 转为 WOFF2，可选子集与字重实例化。返回 (success, message, final_path, time_seconds)"""
+    if not os.path.exists(input_ttf_path):
+        return False, f"错误: 输入文件不存在 - {input_ttf_path}", None, 0
+    if not input_ttf_path.lower().endswith((".ttf", ".otf")):
+        return False, f"错误: 输入文件 '{input_ttf_path}' 不是 TTF 或 OTF 格式。", None, 0
+
+    # 确保输出目录存在
+    if output_woff2_path:
+        output_dir = os.path.dirname(output_woff2_path)
+        if output_dir and not os.path.exists(output_dir):
+            try:
+                os.makedirs(output_dir)
+            except OSError as e:
+                return False, f"错误: 无法创建输出目录 '{output_dir}': {e}", None, 0
+
+    try:
+        from fontTools import subset as ft_subset
+        from fontTools.ttLib import TTFont as FT_TTFont
+        from fontTools.varLib.instancer import instantiateVariableFont
+
+        font_for_subset = input_ttf_path
+        temp_font_path = None
+
+        # 可变字体字重实例化
+        if weight_value is not None and str(weight_value).isdigit():
+            weight_value = int(weight_value)
+            with FT_TTFont(input_ttf_path) as font_check:
+                if 'fvar' in font_check:
+                    wght_axis = [a for a in font_check['fvar'].axes if a.axisTag == 'wght']
+                    if wght_axis:
+                        min_w = int(wght_axis[0].minValue)
+                        max_w = int(wght_axis[0].maxValue)
+                        if not (min_w <= weight_value <= max_w):
+                            return False, f"字重 {weight_value} 超出字体支持范围（{min_w}~{max_w}），请重新选择。", None, 0
+                        temp_font = instantiateVariableFont(font_check, {'wght': weight_value}, inplace=False)
+                        with tempfile.NamedTemporaryFile(suffix=".ttf", delete=False) as tmpf:
+                            temp_font.save(tmpf.name)
+                            font_for_subset = tmpf.name
+                            temp_font_path = tmpf.name
+
+        start_time = time.time()
+        font = FT_TTFont(font_for_subset)
+
+        # 子集化
+        if subset_chars and subset_chars.strip():
+            sub = ft_subset.Subsetter()
+            sub.populate(text=subset_chars)
+            sub.subset(font)
+
+        font.flavor = 'woff2'
+        final_path = output_woff2_path or os.path.splitext(input_ttf_path)[0] + '.woff2'
+        font.save(final_path)
+        conversion_time = time.time() - start_time
+
+        message = f"✓ {os.path.basename(input_ttf_path)} 转换成功"
+        if weight_value is not None:
+            message += f" (字重:{weight_value})"
+        message += f" - 耗时: {conversion_time:.2f}秒"
+        return True, message, final_path, conversion_time
+
+    except Exception as e:
+        return False, f"字体转换时发生错误: {e}\n{traceback.format_exc()}", None, 0
+    finally:
+        if 'temp_font_path' in locals() and temp_font_path and os.path.exists(temp_font_path):
+            try:
+                os.remove(temp_font_path)
+            except Exception:
+                pass
+
+
+def convert_ttf_to_woff_core(input_ttf_path, output_woff_path=None, subset_chars=None, weight_value=None):
+    """将 TTF/OTF 转为 WOFF，可选子集与字重实例化。返回 (success, message, final_path, time_seconds)"""
+    if not os.path.exists(input_ttf_path):
+        return False, f"错误: 输入文件不存在 - {input_ttf_path}", None, 0
+    if not input_ttf_path.lower().endswith((".ttf", ".otf")):
+        return False, f"错误: 输入文件 '{input_ttf_path}' 不是 TTF 或 OTF 格式。", None, 0
+
+    if output_woff_path:
+        output_dir = os.path.dirname(output_woff_path)
+        if output_dir and not os.path.exists(output_dir):
+            try:
+                os.makedirs(output_dir)
+            except OSError as e:
+                return False, f"错误: 无法创建输出目录 '{output_dir}': {e}", None, 0
+
+    try:
+        from fontTools import subset as ft_subset
+        from fontTools.ttLib import TTFont as FT_TTFont
+        from fontTools.varLib.instancer import instantiateVariableFont
+
+        font_for_subset = input_ttf_path
+        temp_font_path = None
+
+        if weight_value is not None and str(weight_value).isdigit():
+            weight_value = int(weight_value)
+            with FT_TTFont(input_ttf_path) as font_check:
+                if 'fvar' in font_check:
+                    wght_axis = [a for a in font_check['fvar'].axes if a.axisTag == 'wght']
+                    if wght_axis:
+                        min_w = int(wght_axis[0].minValue)
+                        max_w = int(wght_axis[0].maxValue)
+                        if not (min_w <= weight_value <= max_w):
+                            return False, f"字重 {weight_value} 超出字体支持范围（{min_w}~{max_w}），请重新选择。", None, 0
+                        temp_font = instantiateVariableFont(font_check, {'wght': weight_value}, inplace=False)
+                        with tempfile.NamedTemporaryFile(suffix=".ttf", delete=False) as tmpf:
+                            temp_font.save(tmpf.name)
+                            font_for_subset = tmpf.name
+                            temp_font_path = tmpf.name
+
+        start_time = time.time()
+        font = FT_TTFont(font_for_subset)
+
+        if subset_chars and subset_chars.strip():
+            sub = ft_subset.Subsetter()
+            sub.populate(text=subset_chars)
+            sub.subset(font)
+
+        font.flavor = 'woff'
+        final_path = output_woff_path or os.path.splitext(input_ttf_path)[0] + '.woff'
+        font.save(final_path)
+        conversion_time = time.time() - start_time
+
+        message = f"✓ {os.path.basename(input_ttf_path)} 转换成功"
+        if weight_value is not None:
+            message += f" (字重:{weight_value})"
+        message += f" - 耗时: {conversion_time:.2f}秒"
+        return True, message, final_path, conversion_time
+
+    except Exception as e:
+        return False, f"字体转换时发生错误: {e}\n{traceback.format_exc()}", None, 0
+    finally:
+        if 'temp_font_path' in locals() and temp_font_path and os.path.exists(temp_font_path):
+            try:
+                os.remove(temp_font_path)
+            except Exception:
+                pass
 
 def get_resource_path(relative_path):
     """获取资源文件的绝对路径"""

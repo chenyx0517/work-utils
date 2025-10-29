@@ -4,6 +4,7 @@ import tempfile
 import traceback
 import time
 import threading
+from font_trans import convert_ttf_to_woff2_core, convert_ttf_to_woff_core
 
 # 延迟导入重型库
 def lazy_import_fonttools():
@@ -20,136 +21,6 @@ def lazy_import_webview():
     return webview
 
 # --- 字体转换核心逻辑 ---
-def convert_ttf_to_woff2_core(input_ttf_path, output_woff2_path=None, subset_chars=None, weight_value=None):
-    if not os.path.exists(input_ttf_path):
-        return False, f"错误: 输入文件不存在 - {input_ttf_path}", None
-    if not input_ttf_path.lower().endswith((".ttf", ".otf")):
-        return False, f"错误: 输入文件 '{input_ttf_path}' 不是 TTF 或 OTF 格式。", None
-    
-    # 确保输出目录存在
-    output_dir = os.path.dirname(output_woff2_path)
-    if not os.path.exists(output_dir):
-        try:
-            os.makedirs(output_dir)
-        except OSError as e:
-            return False, f"错误: 无法创建输出目录 '{output_dir}': {e}", None
-
-    try:
-        # 延迟导入字体处理库
-        subset, TTFont, instantiateVariableFont = lazy_import_fonttools()
-        font_for_subset = input_ttf_path
-        temp_font_path = None
-
-        if weight_value is not None and str(weight_value).isdigit():
-            weight_value = int(weight_value)
-            with TTFont(input_ttf_path) as font_check:
-                if 'fvar' in font_check:
-                    wght_axis = [a for a in font_check['fvar'].axes if a.axisTag == 'wght']
-                    if wght_axis:
-                        min_w = int(wght_axis[0].minValue)
-                        max_w = int(wght_axis[0].maxValue)
-                        if not (min_w <= weight_value <= max_w):
-                            return False, f"字重 {weight_value} 超出字体支持范围（{min_w}~{max_w}），请重新选择。", None
-                        
-                        temp_font = instantiateVariableFont(font_check, {'wght': weight_value}, inplace=False)
-                        with tempfile.NamedTemporaryFile(suffix=".ttf", delete=False) as tmpf:
-                            temp_font.save(tmpf.name)
-                            font_for_subset = tmpf.name
-                            temp_font_path = tmpf.name
-        
-        start_time = time.time()
-        
-        font = TTFont(font_for_subset)
-        
-        if subset_chars and subset_chars.strip():
-            subsetter = subset.Subsetter()
-            subsetter.populate(text=subset_chars)
-            subsetter.subset(font)
-        
-        font.flavor = 'woff2'
-        font.save(output_woff2_path)
-        
-        end_time = time.time()
-        conversion_time = end_time - start_time
-
-        message = f"✓ {os.path.basename(input_ttf_path)} 转换成功"
-        if weight_value is not None:
-            message += f" (字重:{weight_value})"
-        message += f" - 耗时: {conversion_time:.2f}秒"
-        
-        return True, message, output_woff2_path, conversion_time
-
-    except Exception as e:
-        return False, f"字体转换时发生错误: {e}\n{traceback.format_exc()}", None, 0
-    finally:
-        if temp_font_path and os.path.exists(temp_font_path):
-            os.remove(temp_font_path)
-
-def convert_ttf_to_woff_core(input_ttf_path, output_woff_path=None, subset_chars=None, weight_value=None):
-    """转换TTF到WOFF格式"""
-    if not os.path.exists(input_ttf_path):
-        return False, f"错误: 输入文件不存在 - {input_ttf_path}", None
-    if not input_ttf_path.lower().endswith((".ttf", ".otf")):
-        return False, f"错误: 输入文件 '{input_ttf_path}' 不是 TTF 或 OTF 格式。", None
-    
-    # 确保输出目录存在
-    output_dir = os.path.dirname(output_woff_path)
-    if not os.path.exists(output_dir):
-        try:
-            os.makedirs(output_dir)
-        except OSError as e:
-            return False, f"错误: 无法创建输出目录 '{output_dir}': {e}", None
-
-    try:
-        # 延迟导入字体处理库
-        subset, TTFont, instantiateVariableFont = lazy_import_fonttools()
-        font_for_subset = input_ttf_path
-        temp_font_path = None
-
-        if weight_value is not None and str(weight_value).isdigit():
-            weight_value = int(weight_value)
-            with TTFont(input_ttf_path) as font_check:
-                if 'fvar' in font_check:
-                    wght_axis = [a for a in font_check['fvar'].axes if a.axisTag == 'wght']
-                    if wght_axis:
-                        min_w = int(wght_axis[0].minValue)
-                        max_w = int(wght_axis[0].maxValue)
-                        if not (min_w <= weight_value <= max_w):
-                            return False, f"字重 {weight_value} 超出字体支持范围（{min_w}~{max_w}），请重新选择。", None
-                        
-                        temp_font = instantiateVariableFont(font_check, {'wght': weight_value}, inplace=False)
-                        with tempfile.NamedTemporaryFile(suffix=".ttf", delete=False) as tmpf:
-                            temp_font.save(tmpf.name)
-                            font_for_subset = tmpf.name
-                            temp_font_path = tmpf.name
-        
-        start_time = time.time()
-        
-        font = TTFont(font_for_subset)
-        
-        if subset_chars and subset_chars.strip():
-            subsetter = subset.Subsetter()
-            subsetter.populate(text=subset_chars)
-            subsetter.subset(font)
-        
-        font.flavor = 'woff'
-        font.save(output_woff_path)
-        
-        end_time = time.time()
-        conversion_time = end_time - start_time
-
-        message = f"✓ {os.path.basename(input_ttf_path)} 转换成功"
-        if weight_value is not None:
-            message += f" (字重:{weight_value})"
-        message += f" - 耗时: {conversion_time:.2f}秒"
-        
-        return True, message, output_woff_path, conversion_time
-
-    except Exception as e:
-        return False, f"字体转换时发生错误: {e}\n{traceback.format_exc()}", None, 0
-    finally:
-        if temp_font_path and os.path.exists(temp_font_path):
-            os.remove(temp_font_path)
 
 class Api:
     def __init__(self, window=None):
@@ -598,30 +469,10 @@ class Api:
             if not filename.lower().endswith(('.ttf', '.otf', '.woff', '.woff2')):
                 return {"success": False, "message": f"✗ 错误: 不支持的文件格式 - {filename}"}
             
-            # 如果没有指定输出目录，尝试智能推断
+            # 如果没有指定输出目录，默认输出到桌面；若桌面不存在则使用当前工作目录
             if not output_folder:
-                # 尝试在常见目录中查找同名文件，使用其所在目录
-                common_dirs = [
-                    os.path.expanduser("~/Desktop"),
-                    os.path.expanduser("~/Downloads"),
-                    os.path.expanduser("~/Documents"),
-                    os.getcwd()
-                ]
-                
-                for dir_path in common_dirs:
-                    if os.path.exists(dir_path):
-                        potential_file = os.path.join(dir_path, filename)
-                        if os.path.exists(potential_file):
-                            output_folder = dir_path
-                            break
-                
-                # 如果还是没找到，使用桌面作为默认
-                if not output_folder:
-                    desktop_path = os.path.expanduser("~/Desktop")
-                    if os.path.exists(desktop_path):
-                        output_folder = desktop_path
-                    else:
-                        output_folder = os.getcwd()
+                desktop_path = os.path.expanduser("~/Desktop")
+                output_folder = desktop_path if os.path.exists(desktop_path) else os.getcwd()
             
             # 调用原有的转换逻辑
             result = self._do_conversion(temp_file_path, subset_chars, weights, output_folder, formats)

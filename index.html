@@ -385,7 +385,7 @@
 						<div class="config-item">
 							<label>输出位置</label>
 							<div class="output-folder-section">
-								<input type="text" id="outputFolderPath" placeholder="自动检测原文件目录..." readonly>
+								<input type="text" id="outputFolderPath" placeholder="默认输出到桌面" readonly>
 								<button type="button" id="selectOutputBtn" onclick="selectOutputFolder()">选择目录</button>
 							</div>
 						</div>
@@ -672,24 +672,20 @@
 								`;
 							});
 						} else {
-							// 如果没有检测到字重信息，使用默认值
-							availableWeights = [400];
-							weightOptions.innerHTML = `
-								<input type="checkbox" id="weight-400" name="weight" value="400" checked>
-								<label for="weight-400">Regular (400)</label>
-							`;
+							// 非可变字体：隐藏字重选择区域，由后端按默认字重处理
+							availableWeights = [];
+							weightOptions.innerHTML = "";
+							weightCard.style.display = "none";
 						}
 					} else {
 						throw new Error('API不可用');
 					}
 				} catch (error) {
 					console.error('获取字重失败:', error);
-					// 出错时使用默认字重
-					availableWeights = [400];
-					weightOptions.innerHTML = `
-						<input type="checkbox" id="weight-400" name="weight" value="400" checked>
-						<label for="weight-400">Regular (400)</label>
-					`;
+					// 出错时隐藏字重选择区域，由后端按默认字重处理
+					availableWeights = [];
+					weightOptions.innerHTML = "";
+					weightCard.style.display = "none";
 				}
 			}
 			
@@ -795,6 +791,7 @@
 			// 统一字符集定义
 			const quickCharSets = {
 				"常用(推荐)": "常用字符集",
+				常用符号: "常用符号",
 				全部数字: "0123456789",
 				大小写英文: "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz",
 				简体中文: "简体中文集",
@@ -810,6 +807,21 @@
 					for (let i = 0x3000; i <= 0x303f; i++) chars.add(String.fromCharCode(i))
 					for (let i = 0xff00; i <= 0xffef; i++) chars.add(String.fromCharCode(i))
 					return Array.from(chars).join("")
+				})(),
+				常用符号: (() => {
+					const addRange = (set, start, end) => { for (let i = start; i <= end; i++) set.add(String.fromCharCode(i)) }
+					const s = new Set()
+					// ASCII punctuation
+					addRange(s, 0x0020, 0x002f); addRange(s, 0x003a, 0x0040); addRange(s, 0x005b, 0x0060); addRange(s, 0x007b, 0x007e)
+					// General Punctuation
+					addRange(s, 0x2000, 0x206f)
+					// Currency Symbols
+					addRange(s, 0x20a0, 0x20cf)
+					// CJK Symbols and Punctuation
+					addRange(s, 0x3000, 0x303f)
+					// Halfwidth and Fullwidth Forms (部分常用标点)
+					addRange(s, 0xff00, 0xff65); addRange(s, 0xffe0, 0xffee)
+					return Array.from(s).join("")
 				})(),
 				简体中文集: Array.from({ length: 0x9fff - 0x4e00 + 1 }, (_, i) => String.fromCharCode(0x4e00 + i)).join(""),
 				繁体中文集:
