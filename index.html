@@ -43,32 +43,40 @@
 			}
 			
 			// 处理拆分文件选择
-			function handleSplitFileSelect(event) {
-				console.log('文件选择被触发:', event);
-				const file = event.target.files[0];
-				console.log('选择的文件:', file);
-				if (file) {
-					// 存储文件对象，用于后续处理
-					window.splitFileData = file;
-					window.splitInputFile = file.name; // 存储文件名
-					document.getElementById('split-input-file').value = file.name;
-					
-					console.log('文件信息已更新:', file.name);
-					
-					// 显示文件信息
-					const infoEl = document.getElementById('split-file-info');
-					infoEl.innerHTML = `
-						<div class="font-info">
-							<strong>${file.name}</strong><br>
-							文件大小: ${(file.size / 1024).toFixed(1)} KB
-						</div>
-					`;
-					infoEl.style.display = 'block';
-					console.log('文件信息已显示');
-				} else {
-					console.log('没有选择文件');
+		function handleSplitFileSelect(event) {
+			console.log('文件选择被触发:', event);
+			const file = event.target.files[0];
+			console.log('选择的文件:', file);
+			if (file) {
+				// 添加文件类型校验，与拖拽处理保持一致
+				const fileName = file.name.toLowerCase();
+				if (!fileName.endsWith('.ttf') && !fileName.endsWith('.otf') && 
+					!fileName.endsWith('.woff') && !fileName.endsWith('.woff2')) {
+					updateResult('❌ 请选择字体文件 (.ttf, .otf, .woff, .woff2)', 'error');
+					return;
 				}
+				
+				// 存储文件对象，用于后续处理
+				window.splitFileData = file;
+				window.splitInputFile = file.name; // 存储文件名
+				document.getElementById('split-input-file').value = file.name;
+				
+				console.log('文件信息已更新:', file.name);
+				
+				// 显示文件信息
+				const infoEl = document.getElementById('split-file-info');
+				infoEl.innerHTML = `
+					<div class="font-info">
+						<strong>${file.name}</strong><br>
+						文件大小: ${(file.size / 1024).toFixed(1)} KB
+					</div>
+				`;
+				infoEl.style.display = 'block';
+				console.log('文件信息已显示');
+			} else {
+				console.log('没有选择文件');
 			}
+		}
 			
 			// 选择语言
 			function selectLanguage(lang) {
@@ -460,26 +468,34 @@
 			}
 			
 			// 文件选择处理函数
-			function handleFileSelect(event) {
-				const file = event.target.files[0];
-				if (file) {
-					selectedFileData = file;
-					inputFile = file.name;
-					updateConvertFileDisplay(inputFile);
-					loadFontInfoFromFile(file, 'convert-file-info');
-					
-					// 自动推断输出目录
-					inferOutputDirectory(file.name);
-					
-					// 启用转换按钮
-					const convertBtn = document.getElementById('convertBtn');
-					convertBtn.disabled = false;
-					
-					// 更新结果提示
-					updateResult("", "success");
-					
-					// 获取字重信息
-					getFontWeightsFromFile(file);
+		function handleFileSelect(event) {
+			const file = event.target.files[0];
+			if (file) {
+				// 添加文件类型校验，与拖拽处理保持一致
+				const fileName = file.name.toLowerCase();
+				if (!fileName.endsWith('.ttf') && !fileName.endsWith('.otf') && 
+					!fileName.endsWith('.woff') && !fileName.endsWith('.woff2')) {
+					updateResult('❌ 请选择字体文件 (.ttf, .otf, .woff, .woff2)', 'error');
+					return;
+				}
+				
+				selectedFileData = file;
+				inputFile = file.name;
+				updateConvertFileDisplay(inputFile);
+				loadFontInfoFromFile(file, 'convert-file-info');
+				
+				// 自动推断输出目录
+				inferOutputDirectory(file.name);
+				
+				// 启用转换按钮
+				const convertBtn = document.getElementById('convertBtn');
+				convertBtn.disabled = false;
+				
+				// 更新结果提示
+				updateResult("", "success");
+				
+				// 获取字重信息
+				getFontWeightsFromFile(file);
 					
 					// 更新按钮文本
 					const selectBtn = document.getElementById('selectFileBtn');
@@ -543,7 +559,7 @@
 							window.splitFileData = file;
 							window.splitInputFile = file.name;
 							document.getElementById('split-input-file').value = file.name;
-							// 使用文件对象展示基础信息（名称、大小）
+							// 使用文件对象展示基础信息（名称、大小）·
 							if (typeof loadFontInfoFromFile === 'function') {
 								loadFontInfoFromFile(file, 'split-file-info');
 							} else {
