@@ -27,6 +27,7 @@ class Api:
         self.window = window
         self.is_processing = False
         self.current_task = None
+        self.should_cancel = False
 
     def select_input_file(self):
         try:
@@ -195,6 +196,7 @@ class Api:
             print(f"🔍 [DEBUG] 输出目录: {output_folder}")
             
             self.is_processing = True
+            self.should_cancel = False
             self.current_task = f"拆分字体 {filename}"
             
             try:
@@ -267,10 +269,15 @@ class Api:
                     num_chunks=num_chunks,
                     preferred_order=preferred_order,
                     font_family=font_family,
-                    language=language
+                    language=language,
+                    cancel_check=lambda: self.should_cancel
                 )
                 print(f"🔍 [DEBUG] split_font 返回结果: {success}")
                 
+                if self.should_cancel:
+                    print("⚠️ [DEBUG] 用户已取消任务")
+                    return {"success": False, "message": "已取消"}
+
                 if success:
                     # 查找生成的CSS文件
                     base_name = os.path.splitext(filename)[0]
@@ -319,9 +326,8 @@ class Api:
     def cancel_processing(self):
         """取消当前处理"""
         if self.is_processing:
-            self.is_processing = False
-            self.current_task = None
-            return {"success": True, "message": "✓ 已取消处理"}
+            self.should_cancel = True
+            return {"success": True, "message": "✓ 已请求取消任务"}
         return {"success": False, "message": "没有正在处理的任务"}
 
     def get_font_weights_from_data(self, file_data, filename):
@@ -592,6 +598,7 @@ class Api:
         finally:
             self.is_processing = False
             self.current_task = None
+            self.should_cancel = False
 
 def get_resource_path(relative_path):
     """获取资源文件的绝对路径，支持打包后的应用"""

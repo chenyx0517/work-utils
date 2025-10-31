@@ -448,25 +448,14 @@ def upload_font_data_to_cdn(font_data: bytes, filename: str, language: str, on_p
         # 上传文件
         print(f"🔍 第二步：上传文件到OSS")
         print(f"🔍 上传路径: {upload_path}")
+        print(f"🔍 文件大小: {len(font_data)} bytes")
         
-        # 分片上传阈值 (100MB)
-        PART_UPLOAD_THRESHOLD = 100 * 1024 * 1024
-        
-        if len(font_data) <= PART_UPLOAD_THRESHOLD:
-            # 小文件直接上传
-            if on_progress:
-                on_progress({'percent': 0})
-            result = bucket_obj.put_object(upload_path, font_data)
-            if on_progress:
-                on_progress({'percent': 100})
-        else:
-            # 大文件分片上传
-            print(f"🔍 文件大小 {len(font_data)} bytes，使用分片上传")
-            result = bucket_obj.multipart_upload(upload_path, font_data, {
-                'progress': lambda p: on_progress({'percent': int(p * 100)}) if on_progress else None,
-                'part_size': 10 * 1024 * 1024,  # 10MB 分片大小
-                'parallel': 3  # 并行上传数
-            })
+        # 字体文件通常较小，直接上传即可
+        if on_progress:
+            on_progress({'percent': 0})
+        result = bucket_obj.put_object(upload_path, font_data)
+        if on_progress:
+            on_progress({'percent': 100})
         
         if result.status == 200:
             # 构建CDN URL - 使用bucket_domain（不追加任何图片处理参数）
@@ -586,7 +575,7 @@ def generate_css_file(subset_info_list: List[Dict], font_family: str, output_css
         print(f"生成CSS文件时出错: {e}")
         return False
 
-def split_font(input_font_path: str, output_folder: str, num_chunks: int = 200, preferred_order: List[str] = None, chars_per_chunk: int | None = None, font_family: str = "有爱魔兽圆体-M", language: str = "mixed") -> bool:
+def split_font(input_font_path: str, output_folder: str, num_chunks: int = 200, preferred_order: List[str] = None, chars_per_chunk: int | None = None, font_family: str = "有爱魔兽圆体-M", language: str = "mixed", cancel_check=None) -> bool:
     """
     拆分字体文件
     
@@ -599,6 +588,7 @@ def split_font(input_font_path: str, output_folder: str, num_chunks: int = 200, 
     - bool: 是否成功
     """
     try:
+        cancel_check = cancel_check or (lambda: False)
         # 检查输入文件
         if not os.path.exists(input_font_path):
             print(f"错误: 输入字体文件不存在: {input_font_path}")
@@ -640,7 +630,12 @@ def split_font(input_font_path: str, output_folder: str, num_chunks: int = 200, 
         success_count = 0
         subset_info_list = []
         
+        cancelled = False
         for i, chunk in enumerate(char_chunks, 1):
+            if cancel_check():
+                print("⚠️ 取消请求已收到，停止拆分。")
+                cancelled = True
+                break
             output_filename = f"{base_name}_subset_{i:03d}{file_ext}"
             
             print(f"创建子集 {i}/{len(char_chunks)}: {output_filename} (包含 {len(chunk)} 个字符)")
@@ -652,6 +647,9 @@ def split_font(input_font_path: str, output_folder: str, num_chunks: int = 200, 
             
             try:
                 if create_font_subset(input_font_path, temp_path, chunk):
+                    if cancel_check():
+                        cancelled = True
+                        break
                     # 计算unicode-range
                     cps = [ord(c) for c in chunk]
                     ranges = codepoints_to_unicode_ranges(cps)
@@ -664,6 +662,9 @@ def split_font(input_font_path: str, output_folder: str, num_chunks: int = 200, 
                     # 生成基础文件名（不包含扩展名）
                     base_filename = f"{base_name}_subset_{i:03d}"
                     
+                    if cancel_check():
+                        cancelled = True
+                        break
                     # 上传多种格式到CDN
                     cdn_urls = upload_multiple_formats_to_cdn(subset_font_data, base_filename, language)
                     
@@ -689,10 +690,16 @@ def split_font(input_font_path: str, output_folder: str, num_chunks: int = 200, 
                 # 删除临时文件
                 if os.path.exists(temp_path):
                     os.unlink(temp_path)
+            if cancelled:
+                break
         
         print(f"\n拆分完成! 成功创建 {success_count}/{len(char_chunks)} 个子集字体")
         # 不再生成字符映射文件，仅输出CSS
         
+        # 若已取消，则不生成CSS
+        if cancelled:
+            print("⚠️ 已取消任务：不生成 CSS、不保留结果。")
+            return False
         # 生成CSS文件
         if subset_info_list:
             css_filename = f"{base_name}_{language}.css"
@@ -704,7 +711,7 @@ def split_font(input_font_path: str, output_folder: str, num_chunks: int = 200, 
             else:
                 print("❌ CSS文件生成失败")
         
-        return success_count > 0
+        return success_count > 0 and not cancelled
         
     except Exception as e:
         print(f"拆分字体时出错: {e}")
